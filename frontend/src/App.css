@@ -1439,6 +1439,28 @@ p {
   background-size: 100% 28px;
 }
 
+.about-status-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 3px;
+  background: currentColor;
+  vertical-align: -0.14em;
+  animation: status-cursor-blink 920ms steps(1, end) infinite;
+}
+
+@keyframes status-cursor-blink {
+  0%,
+  48% {
+    opacity: 1;
+  }
+
+  49%,
+  100% {
+    opacity: 0;
+  }
+}
+
 .about-stack-strip {
   display: flex;
   flex-wrap: wrap;

@@ -1364,6 +1364,30 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
 
 function AboutSitePage({ language }: { language: Language }) {
   const isPt = language === 'pt'
+  const statusText = `status: ${isPt ? 'em produção' : 'in production'}
+api: ASP.NET Core
+auth: JWT + password hash
+db: Neon PostgreSQL
+email: Resend
+deploy: GitHub Pages + Render`
+  const [typedStatus, setTypedStatus] = useState('')
+
+  useEffect(() => {
+    let index = 0
+    setTypedStatus('')
+
+    const intervalId = window.setInterval(() => {
+      index += 1
+      setTypedStatus(statusText.slice(0, index))
+
+      if (index >= statusText.length) {
+        window.clearInterval(intervalId)
+      }
+    }, 18)
+
+    return () => window.clearInterval(intervalId)
+  }, [statusText])
+
   const workflow = [
     {
       number: '01',
@@ -1407,15 +1431,15 @@ function AboutSitePage({ language }: { language: Language }) {
     },
     {
       number: '06',
-      title: isPt ? 'Integrações' : 'Integrations',
+      title: isPt ? 'E-mails + integrações' : 'Email + integrations',
       text: isPt
-        ? 'ViaCEP, GitHub API, Kitsu, Open-Meteo e Resend mostram consumo de APIs, normalização e fluxos reais.'
-        : 'ViaCEP, GitHub API, Kitsu, Open-Meteo and Resend show API consumption, normalization and real flows.',
-      command: 'GET /api/lab',
+        ? 'ViaCEP, GitHub API, Kitsu e Open-Meteo mostram consumo de APIs públicas; Resend envia os links de recuperação de senha.'
+        : 'ViaCEP, GitHub API, Kitsu and Open-Meteo show public API consumption; Resend sends password recovery links.',
+      command: 'Resend + public APIs',
     },
   ]
 
-  const stack = ['C#', 'ASP.NET Core', 'React', 'TypeScript', 'Vite', 'PostgreSQL', 'EF Core', 'JWT', 'Render', 'GitHub Pages']
+  const stack = ['C#', 'ASP.NET Core', 'React', 'TypeScript', 'Vite', 'PostgreSQL', 'EF Core', 'JWT', 'Resend', 'Render', 'GitHub Pages']
 
   return (
     <section className="about-page">
@@ -1436,11 +1460,7 @@ function AboutSitePage({ language }: { language: Language }) {
         </div>
 
         <aside className="about-status-card" aria-label={isPt ? 'Resumo técnico' : 'Technical summary'}>
-          <pre>{`status: ${isPt ? 'em produção' : 'in production'}
-api: ASP.NET Core
-auth: JWT + password hash
-db: Neon PostgreSQL
-deploy: GitHub Pages + Render`}</pre>
+          <pre aria-live="polite">{typedStatus}<span className="about-status-cursor" aria-hidden="true" /></pre>
         </aside>
       </div>
 
@@ -1479,16 +1499,46 @@ function BackendRoom({
   const [communityCaption, setCommunityCaption] = useState('')
   const [roomResult, setRoomResult] = useState<unknown>({ loading: true })
   const [loading, setLoading] = useState(false)
+  const [communityActionPostId, setCommunityActionPostId] = useState<string | null>(null)
   const [drawingStatus, setDrawingStatus] = useState(language === 'pt' ? 'Canvas pronto.' : 'Canvas ready.')
   const [brushColor, setBrushColor] = useState('#111111')
   const [brushSize, setBrushSize] = useState(5)
   const [isDrawing, setIsDrawing] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const communityRefreshInFlightRef = useRef(false)
+  const communityActionInFlightRef = useRef(false)
+  const mountedRef = useRef(true)
   const locale = language === 'pt' ? 'pt-BR' : 'en-US'
   const tokenPreview = `${session.accessToken.slice(0, 28)}...${session.accessToken.slice(-12)}`
 
   useEffect(() => {
+    mountedRef.current = true
+
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     void loadRoom()
+  }, [session.accessToken])
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.hidden) return
+      void refreshCommunityPosts()
+    }
+
+    const intervalId = window.setInterval(refreshIfVisible, 4_000)
+
+    window.addEventListener('focus', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
   }, [session.accessToken])
 
   useEffect(() => {
@@ -1534,6 +1584,30 @@ function BackendRoom({
       setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function refreshCommunityPosts(reportErrors = false) {
+    if (communityRefreshInFlightRef.current) {
+      return
+    }
+
+    communityRefreshInFlightRef.current = true
+
+    try {
+      const posts = await getProtectedApi<BackendRoomCommunityPost[]>('/api/backend-room/community', session.accessToken)
+
+      if (!mountedRef.current) {
+        return
+      }
+
+      setRoom((current) => current && { ...current, communityPosts: posts })
+    } catch (error) {
+      if (reportErrors) {
+        setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+      }
+    } finally {
+      communityRefreshInFlightRef.current = false
     }
   }
 
@@ -1754,7 +1828,10 @@ function BackendRoom({
   }
 
   async function toggleCommunityLike(post: BackendRoomCommunityPost) {
-    setLoading(true)
+    if (communityActionInFlightRef.current) return
+
+    communityActionInFlightRef.current = true
+    setCommunityActionPostId(post.id)
 
     try {
       const like = await sendProtectedApi<BackendRoomLikeResult>(
@@ -1785,14 +1862,18 @@ function BackendRoom({
       })
     } catch (error) {
       setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
-      void loadRoom()
+      void refreshCommunityPosts(true)
     } finally {
-      setLoading(false)
+      communityActionInFlightRef.current = false
+      setCommunityActionPostId(null)
     }
   }
 
   async function deleteCommunityPost(post: BackendRoomCommunityPost) {
-    setLoading(true)
+    if (communityActionInFlightRef.current) return
+
+    communityActionInFlightRef.current = true
+    setCommunityActionPostId(post.id)
 
     try {
       const result = await sendProtectedApi<BackendRoomActionResult>(
@@ -1815,9 +1896,10 @@ function BackendRoom({
       })
     } catch (error) {
       setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
-      void loadRoom()
+      void refreshCommunityPosts(true)
     } finally {
-      setLoading(false)
+      communityActionInFlightRef.current = false
+      setCommunityActionPostId(null)
     }
   }
 
@@ -1986,7 +2068,7 @@ function BackendRoom({
                       <button
                         className={`heart-button ${post.likedByCurrentUser ? 'is-liked' : ''}`}
                         type="button"
-                        disabled={loading}
+                        disabled={communityActionPostId === post.id}
                         onClick={() => toggleCommunityLike(post)}
                         aria-label={
                           post.likedByCurrentUser
@@ -2005,7 +2087,7 @@ function BackendRoom({
                         <button
                           className="community-delete-button"
                           type="button"
-                          disabled={loading}
+                          disabled={communityActionPostId === post.id}
                           onClick={() => deleteCommunityPost(post)}
                         >
                           {language === 'pt' ? 'Excluir' : 'Delete'}
@@ -2014,12 +2096,7 @@ function BackendRoom({
                     </div>
                   </div>
                   <span className="community-expiry">{getCommunityPostExpiry(post)}</span>
-                  <p>
-                    {post.caption ||
-                      (language === 'pt'
-                        ? 'Sem legenda, só energia de canvas.'
-                        : 'No caption, just canvas energy.')}
-                  </p>
+                  {post.caption && <p>{post.caption}</p>}
                 </article>
               ))
             ) : (

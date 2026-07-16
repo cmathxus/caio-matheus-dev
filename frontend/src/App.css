@@ -1602,9 +1602,337 @@ p {
   margin-top: 16px;
 }
 
+.backend-room-page {
+  padding-top: 22px;
+}
+
+.backend-room-shell {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 1080px);
+  margin: 0 auto;
+}
+
+.backend-room-top,
+.backend-room-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.backend-room-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+}
+
+.backend-room-title h2 {
+  margin-bottom: 6px;
+  font-size: clamp(2.2rem, 5vw, 3.5rem);
+  line-height: 0.94;
+  letter-spacing: -0.08em;
+}
+
+.backend-room-title p:not(.eyebrow) {
+  max-width: 620px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+
+.backend-room-session {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.backend-room-session span,
+.backend-room-session small,
+.paint-actions span,
+.note-card span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.backend-room-session div:not(.user-avatar) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.backend-room-session strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backend-room-session small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backend-room-session .button {
+  grid-column: 1 / -1;
+  width: fit-content;
+  min-height: 34px;
+}
+
+.user-avatar {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 800;
+}
+
+.backend-room-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.backend-room-panel {
+  overflow: hidden;
+}
+
+.backend-room-panel .panel-title {
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+.note-composer {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.note-composer textarea,
+.note-card textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.note-composer textarea {
+  min-height: 78px;
+  padding: 12px;
+}
+
+.note-composer .button {
+  width: fit-content;
+}
+
+.note-list {
+  display: grid;
+  gap: 10px;
+  max-height: 310px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.note-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  transition:
+    border-color 160ms var(--ease),
+    background-color 160ms var(--ease);
+}
+
+.note-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.note-card textarea {
+  min-height: 82px;
+  padding: 10px;
+  background: var(--surface);
+}
+
+.note-card div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.note-card button,
+.paint-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.note-card button:hover,
+.paint-actions button:hover {
+  border-color: var(--fg);
+}
+
+.empty-state {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+
+.paint-panel {
+  display: grid;
+}
+
+.paint-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.paint-swatches {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.paint-swatches button {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--bg) 80%, transparent);
+}
+
+.paint-swatches button.active {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
+}
+
+.paint-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.paint-canvas {
+  display: block;
+  width: calc(100% - 24px);
+  max-width: 100%;
+  height: clamp(220px, 32vh, 292px);
+  margin: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.paint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.paint-actions span {
+  margin-right: auto;
+}
+
+.room-json-panel pre {
+  max-height: 240px;
+}
+
+.room-json-panel summary {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.room-json-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-json-panel summary span {
+  font-weight: 650;
+}
+
+.room-json-panel summary code {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.room-json-panel summary::after {
+  content: "+";
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.room-json-panel[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.room-json-panel[open] summary::after {
+  content: "−";
+}
+
 .button:disabled,
 .auth-form button:disabled,
-.auth-token-panel button:disabled {
+.auth-token-panel button:disabled,
+.backend-room-page button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none;
@@ -1896,7 +2224,9 @@ pre {
   .api-grid,
   .details-grid,
   .lab-grid,
-  .auth-grid {
+  .auth-grid,
+  .backend-room-top,
+  .backend-room-grid {
     grid-template-columns: 1fr;
   }
 

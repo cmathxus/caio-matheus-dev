@@ -9,6 +9,10 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
 
     public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
 
+    public DbSet<BackendRoomNoteEntity> BackendRoomNotes => Set<BackendRoomNoteEntity>();
+
+    public DbSet<BackendRoomDrawingEntity> BackendRoomDrawings => Set<BackendRoomDrawingEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AuthUserEntity>(builder =>
@@ -35,6 +39,35 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
             builder.HasOne(token => token.User)
                 .WithMany(user => user.PasswordResetTokens)
                 .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BackendRoomNoteEntity>(builder =>
+        {
+            builder.ToTable("backend_room_notes");
+            builder.HasKey(note => note.Id);
+            builder.Property(note => note.Content).HasMaxLength(1200).IsRequired();
+            builder.Property(note => note.CreatedAt).IsRequired();
+            builder.Property(note => note.UpdatedAt).IsRequired();
+            builder.HasIndex(note => new { note.UserId, note.UpdatedAt });
+            builder.HasOne(note => note.User)
+                .WithMany(user => user.BackendRoomNotes)
+                .HasForeignKey(note => note.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BackendRoomDrawingEntity>(builder =>
+        {
+            builder.ToTable("backend_room_drawings");
+            builder.HasKey(drawing => drawing.Id);
+            builder.Property(drawing => drawing.Name).HasMaxLength(80).IsRequired();
+            builder.Property(drawing => drawing.DataUrl).IsRequired();
+            builder.Property(drawing => drawing.CreatedAt).IsRequired();
+            builder.Property(drawing => drawing.UpdatedAt).IsRequired();
+            builder.HasIndex(drawing => drawing.UserId).IsUnique();
+            builder.HasOne(drawing => drawing.User)
+                .WithOne(user => user.BackendRoomDrawing)
+                .HasForeignKey<BackendRoomDrawingEntity>(drawing => drawing.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

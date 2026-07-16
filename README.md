@@ -11,6 +11,7 @@ Curriculo web bilingue de Caio Matheus, com frontend em React/Vite e backend em 
 - Integracao com GitHub API.
 - Integration Lab com ViaCEP, GitHub user, busca de anime, clima por estado e autenticacao JWT.
 - Auth Lab com cadastro, login, JWT, senha com hash, Neon Postgres e recuperacao de senha por Resend API HTTP.
+- Backend Room pos-login com notas privadas e canvas persistido por usuario autenticado.
 - Cache em memoria e worker em background.
 - Preparado para deploy no Render usando `render.yaml`.
 
@@ -74,6 +75,11 @@ POST /api/auth/login
 GET /api/auth/me
 POST /api/auth/forgot-password
 POST /api/auth/reset-password
+GET /api/backend-room
+POST /api/backend-room/notes
+PUT /api/backend-room/notes/{id}
+DELETE /api/backend-room/notes/{id}
+PUT /api/backend-room/drawing
 ```
 
 ## Deploy no Render
@@ -86,7 +92,7 @@ O repositorio possui `render.yaml` com dois servicos:
 Variaveis secretas para preencher no Render:
 
 ```text
-ConnectionStrings__DefaultConnection=postgresql://...
+ConnectionStrings__DefaultConnection=Host=...;Database=...;Username=...;Password=...;SSL Mode=Require
 Resend__ApiKey=re_...
 ```
 
@@ -96,7 +102,7 @@ O Render gera automaticamente:
 AuthLab__Secret
 ```
 
-O backend aceita connection string do Neon tanto no formato `postgresql://...` quanto no formato Npgsql `Host=...;Database=...`.
+O backend aceita connection string do Neon no formato de URL gerado pelo painel ou no formato Npgsql `Host=...;Database=...`.
 
 ## Email de recuperacao no Render Free
 

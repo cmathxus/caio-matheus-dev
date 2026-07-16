@@ -15,5 +15,9 @@ public sealed class AuthUserEntity
     public DateTimeOffset CreatedAt { get; set; }
 
     public ICollection<PasswordResetTokenEntity> PasswordResetTokens { get; set; } = [];
+
+    public ICollection<BackendRoomNoteEntity> BackendRoomNotes { get; set; } = [];
+
+    public BackendRoomDrawingEntity? BackendRoomDrawing { get; set; }
 }
 

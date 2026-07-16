@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent, MouseEvent } from 'react'
+import type { CSSProperties, FormEvent, MouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
 
 type Language = 'pt' | 'en'
@@ -135,6 +135,34 @@ type PasswordResetRequestResult = {
 }
 
 type PasswordResetConfirmation = {
+  message: string
+}
+
+type BackendRoomNote = {
+  id: string
+  userId: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+type BackendRoomDrawing = {
+  id: string
+  userId: string
+  name: string
+  dataUrl: string
+  createdAt: string
+  updatedAt: string
+}
+
+type BackendRoomSnapshot = {
+  user: AuthUserProfile
+  notes: BackendRoomNote[]
+  drawing: BackendRoomDrawing | null
+  loadedAt: string
+}
+
+type BackendRoomActionResult = {
   message: string
 }
 
@@ -549,12 +577,40 @@ async function postApi<T>(path: string, body: unknown): Promise<T> {
   return payload.data
 }
 
-async function fetchWithToken(path: string, token: string): Promise<unknown> {
+async function getProtectedApi<T>(path: string, token: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
+  const payload = (await response.json()) as ApiResponse<T>
 
-  return response.json()
+  if (!response.ok || !payload.success || payload.data === null) {
+    throw new Error(payload.error?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return payload.data
+}
+
+async function sendProtectedApi<T>(
+  path: string,
+  token: string,
+  method: 'POST' | 'PUT' | 'DELETE',
+  body?: unknown,
+): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const payload = (await response.json()) as ApiResponse<T>
+
+  if (!response.ok || !payload.success || payload.data === null) {
+    throw new Error(payload.error?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return payload.data
 }
 
 function getInitialTheme(): Theme {
@@ -1001,7 +1057,6 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
   const [authResult, setAuthResult] = useState<unknown>({ waiting: true })
   const [loading, setLoading] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
-  const locale = language === 'pt' ? 'pt-BR' : 'en-US'
 
   async function submitAuth(event: FormEvent) {
     event.preventDefault()
@@ -1055,21 +1110,18 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
     }
   }
 
-  async function validateToken() {
-    if (!session) return
-
-    setLoading(true)
-
-    try {
-      setAuthResult(await fetchWithToken('/api/auth/me', session.accessToken))
-    } catch (error) {
-      setAuthResult({
-        success: false,
-        error: error instanceof Error ? error.message : 'Request failed',
-      })
-    } finally {
-      setLoading(false)
-    }
+  if (session) {
+    return (
+      <BackendRoom
+        session={session}
+        language={language}
+        onLogout={() => {
+          setSession(null)
+          setPassword('')
+          setAuthResult({ waiting: true })
+        }}
+      />
+    )
   }
 
   return (
@@ -1148,18 +1200,18 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
 
         <article className="auth-panel auth-token-panel">
           <div className="panel-title">
-            <h3>{t.authToken}</h3>
-            {session && <span>{new Date(session.expiresAt).toLocaleString(locale)}</span>}
+            <h3>Backend Room</h3>
+            <span>JWT</span>
           </div>
 
           <pre className="auth-token">
-            {session?.accessToken ?? (language === 'pt'
-              ? 'O token aparece aqui depois do registro ou login.'
-              : 'The token appears here after registering or logging in.')}
+            {language === 'pt'
+              ? 'Depois do login, você entra em uma área protegida com notas privadas, canvas pessoal e chamadas autenticadas.'
+              : 'After login, you enter a protected area with private notes, personal canvas and authenticated requests.'}
           </pre>
 
-          <button className="button" type="button" disabled={!session || loading} onClick={validateToken}>
-            {t.authValidate}
+          <button className="button" type="button" disabled>
+            {language === 'pt' ? 'Faça login para abrir' : 'Login to open'}
           </button>
         </article>
       </div>
@@ -1175,6 +1227,382 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
   )
 }
 
+function BackendRoom({
+  session,
+  language,
+  onLogout,
+}: {
+  session: AuthSession
+  language: Language
+  onLogout: () => void
+}) {
+  const [room, setRoom] = useState<BackendRoomSnapshot | null>(null)
+  const [noteContent, setNoteContent] = useState('')
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [roomResult, setRoomResult] = useState<unknown>({ loading: true })
+  const [loading, setLoading] = useState(false)
+  const [drawingStatus, setDrawingStatus] = useState(language === 'pt' ? 'Canvas pronto.' : 'Canvas ready.')
+  const [brushColor, setBrushColor] = useState('#111111')
+  const [brushSize, setBrushSize] = useState(5)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const locale = language === 'pt' ? 'pt-BR' : 'en-US'
+  const tokenPreview = `${session.accessToken.slice(0, 28)}...${session.accessToken.slice(-12)}`
+
+  useEffect(() => {
+    void loadRoom()
+  }, [session.accessToken])
+
+  useEffect(() => {
+    if (!room) return
+
+    setNoteDrafts(Object.fromEntries(room.notes.map((note) => [note.id, note.content])))
+  }, [room])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !room) return
+
+    const context = canvas.getContext('2d')
+    if (!context) return
+
+    if (!room.drawing?.dataUrl) {
+      resetCanvas()
+      return
+    }
+
+    const image = new Image()
+    image.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    }
+    image.src = room.drawing.dataUrl
+  }, [room?.drawing?.dataUrl])
+
+  async function loadRoom() {
+    setLoading(true)
+
+    try {
+      const result = await getProtectedApi<BackendRoomSnapshot>('/api/backend-room', session.accessToken)
+      setRoom(result)
+      setRoomResult({
+        success: true,
+        loadedAt: result.loadedAt,
+        notes: result.notes.length,
+        drawingSaved: Boolean(result.drawing),
+      })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function createNote(event: FormEvent) {
+    event.preventDefault()
+
+    if (!noteContent.trim()) return
+
+    setLoading(true)
+
+    try {
+      const note = await sendProtectedApi<BackendRoomNote>(
+        '/api/backend-room/notes',
+        session.accessToken,
+        'POST',
+        { content: noteContent },
+      )
+      setRoom((current) => current && { ...current, notes: [note, ...current.notes] })
+      setNoteContent('')
+      setRoomResult({ success: true, action: 'note.created', note })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function saveNote(note: BackendRoomNote) {
+    const content = noteDrafts[note.id]?.trim()
+
+    if (!content || content === note.content) return
+
+    setLoading(true)
+
+    try {
+      const updated = await sendProtectedApi<BackendRoomNote>(
+        `/api/backend-room/notes/${note.id}`,
+        session.accessToken,
+        'PUT',
+        { content },
+      )
+      setRoom((current) =>
+        current && {
+          ...current,
+          notes: current.notes.map((item) => (item.id === updated.id ? updated : item)),
+        },
+      )
+      setRoomResult({ success: true, action: 'note.updated', note: updated })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    setLoading(true)
+
+    try {
+      const result = await sendProtectedApi<BackendRoomActionResult>(
+        `/api/backend-room/notes/${noteId}`,
+        session.accessToken,
+        'DELETE',
+      )
+      setRoom((current) =>
+        current && {
+          ...current,
+          notes: current.notes.filter((note) => note.id !== noteId),
+        },
+      )
+      setRoomResult({ success: true, action: 'note.deleted', result })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function getCanvasPoint(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    const rect = canvas.getBoundingClientRect()
+
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    }
+  }
+
+  function startDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = event.currentTarget
+    const context = canvas.getContext('2d')
+
+    if (!context) return
+
+    const point = getCanvasPoint(event)
+    canvas.setPointerCapture(event.pointerId)
+    context.beginPath()
+    context.moveTo(point.x, point.y)
+    setIsDrawing(true)
+  }
+
+  function draw(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!isDrawing) return
+
+    const context = event.currentTarget.getContext('2d')
+
+    if (!context) return
+
+    const point = getCanvasPoint(event)
+    context.lineWidth = brushSize
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.strokeStyle = brushColor
+    context.lineTo(point.x, point.y)
+    context.stroke()
+  }
+
+  function stopDrawing(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!isDrawing) return
+
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    setIsDrawing(false)
+  }
+
+  function resetCanvas() {
+    const canvas = canvasRef.current
+    const context = canvas?.getContext('2d')
+
+    if (!canvas || !context) return
+
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  async function saveDrawing() {
+    const canvas = canvasRef.current
+
+    if (!canvas) return
+
+    setLoading(true)
+    setDrawingStatus(language === 'pt' ? 'Salvando desenho...' : 'Saving drawing...')
+
+    try {
+      const drawing = await sendProtectedApi<BackendRoomDrawing>(
+        '/api/backend-room/drawing',
+        session.accessToken,
+        'PUT',
+        {
+          name: 'backend-room-canvas',
+          dataUrl: canvas.toDataURL('image/png'),
+        },
+      )
+      setRoom((current) => current && { ...current, drawing })
+      setRoomResult({ success: true, action: 'drawing.saved', drawing: { ...drawing, dataUrl: '[canvas png]' } })
+      setDrawingStatus(language === 'pt' ? 'Canvas salvo no seu usuário.' : 'Canvas saved to your user.')
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+      setDrawingStatus(language === 'pt' ? 'Falha ao salvar desenho.' : 'Failed to save drawing.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section className="lab-page backend-room-page">
+      <div className="backend-room-shell">
+        <header className="backend-room-top">
+          <div className="backend-room-title">
+            <p className="eyebrow">{language === 'pt' ? 'Área autenticada' : 'Authenticated area'}</p>
+            <h2>Backend Room</h2>
+            <p>
+              {language === 'pt'
+                ? 'Um espaço privado para testar autenticação JWT com dados salvos por usuário.'
+                : 'A private space to test JWT authentication with user-owned saved data.'}
+            </p>
+          </div>
+
+          <div className="backend-room-session">
+            <div className="user-avatar" aria-hidden="true">
+              {session.user.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <span>{language === 'pt' ? 'Sessão ativa' : 'Active session'}</span>
+              <strong>{session.user.name}</strong>
+              <small>{session.user.email}</small>
+            </div>
+            <button className="button" type="button" onClick={onLogout}>
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <div className="backend-room-grid">
+        <article className="backend-room-panel notes-panel">
+          <div className="panel-title">
+            <h3>{language === 'pt' ? 'Anotações privadas' : 'Private notes'}</h3>
+            <span>POST /notes</span>
+          </div>
+
+          <form className="note-composer" onSubmit={createNote}>
+            <textarea
+              value={noteContent}
+              onChange={(event) => setNoteContent(event.target.value)}
+              placeholder={language === 'pt' ? 'Nova anotação privada...' : 'New private note...'}
+              maxLength={1200}
+            />
+            <button className="button primary" type="submit" disabled={loading || !noteContent.trim()}>
+              {language === 'pt' ? 'Salvar nota' : 'Save note'}
+            </button>
+          </form>
+
+          <div className="note-list">
+            {room?.notes.length ? (
+              room.notes.map((note) => (
+                <article className="note-card" key={note.id}>
+                  <textarea
+                    value={noteDrafts[note.id] ?? note.content}
+                    onChange={(event) =>
+                      setNoteDrafts((current) => ({ ...current, [note.id]: event.target.value }))
+                    }
+                  />
+                  <div>
+                    <span>{new Date(note.updatedAt).toLocaleString(locale)}</span>
+                    <button type="button" disabled={loading} onClick={() => saveNote(note)}>
+                      {language === 'pt' ? 'Atualizar' : 'Update'}
+                    </button>
+                    <button type="button" disabled={loading} onClick={() => deleteNote(note.id)}>
+                      {language === 'pt' ? 'Apagar' : 'Delete'}
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">
+                {language === 'pt'
+                  ? 'Sem notas por enquanto. Crie uma anotação e ela volta quando você fizer login de novo.'
+                  : 'No notes yet. Create one and it comes back when you log in again.'}
+              </p>
+            )}
+          </div>
+        </article>
+
+        <article className="backend-room-panel paint-panel">
+          <div className="panel-title">
+            <h3>{language === 'pt' ? 'Canvas privado' : 'Private canvas'}</h3>
+            <span>PUT /drawing</span>
+          </div>
+
+          <div className="paint-toolbar">
+            <div className="paint-swatches">
+              {['#111111', '#ffffff', '#ef4444', '#2563eb', '#16a34a'].map((color) => (
+                <button
+                  className={brushColor === color ? 'active' : ''}
+                  key={color}
+                  type="button"
+                  style={{ '--swatch': color } as CSSProperties}
+                  aria-label={`Brush ${color}`}
+                  onClick={() => setBrushColor(color)}
+                />
+              ))}
+            </div>
+            <label>
+              {language === 'pt' ? 'Traço' : 'Stroke'}
+              <input
+                type="range"
+                min="2"
+                max="16"
+                value={brushSize}
+                onChange={(event) => setBrushSize(Number(event.target.value))}
+              />
+            </label>
+          </div>
+
+          <canvas
+            ref={canvasRef}
+            width="920"
+            height="460"
+            className="paint-canvas"
+            onPointerDown={startDrawing}
+            onPointerMove={draw}
+            onPointerUp={stopDrawing}
+            onPointerCancel={stopDrawing}
+          />
+
+          <div className="paint-actions">
+            <span>{drawingStatus}</span>
+            <button type="button" disabled={loading} onClick={resetCanvas}>
+              {language === 'pt' ? 'Limpar' : 'Clear'}
+            </button>
+            <button className="button primary" type="button" disabled={loading} onClick={saveDrawing}>
+              {language === 'pt' ? 'Salvar canvas' : 'Save canvas'}
+            </button>
+          </div>
+        </article>
+        </div>
+
+        <details className="backend-room-panel room-json-panel">
+          <summary>
+            <span>{language === 'pt' ? 'Ver trace da API' : 'View API trace'}</span>
+            <code>GET /api/backend-room</code>
+          </summary>
+          <pre>{JSON.stringify({ token: tokenPreview, lastAction: roomResult }, null, 2)}</pre>
+        </details>
+      </div>
+    </section>
+  )
+}
+
 function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language }) {
   const searchParams = new URLSearchParams(window.location.search)
   const email = searchParams.get('authResetEmail') ?? ''
@@ -1184,7 +1612,6 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
   const [session, setSession] = useState<AuthSession | null>(null)
   const [result, setResult] = useState<unknown>({ waiting: true })
   const [loading, setLoading] = useState(false)
-  const locale = language === 'pt' ? 'pt-BR' : 'en-US'
 
   async function submitReset(event: FormEvent) {
     event.preventDefault()
@@ -1233,6 +1660,21 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
     }
   }
 
+  if (session) {
+    return (
+      <BackendRoom
+        session={session}
+        language={language}
+        onLogout={() => {
+          setSession(null)
+          setPassword('')
+          setConfirmPassword('')
+          setResult({ waiting: true })
+        }}
+      />
+    )
+  }
+
   return (
     <section className="lab-page auth-page auth-reset-page">
       <SectionHeading title={t.authResetPageTitle} text={t.authResetPageText} />
@@ -1263,8 +1705,7 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
 
         <article className="auth-panel auth-token-panel">
           <div className="panel-title">
-            <h3>{session ? t.authToken : t.response}</h3>
-            {session && <span>{new Date(session.expiresAt).toLocaleString(locale)}</span>}
+            <h3>{t.response}</h3>
           </div>
           <pre className="auth-token">{JSON.stringify(result, null, 2)}</pre>
         </article>

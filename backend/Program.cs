@@ -37,11 +37,13 @@ if (!string.IsNullOrWhiteSpace(defaultConnection))
         options.UseNpgsql(defaultConnection));
     builder.Services.AddScoped<IAuthUserStore, PostgresAuthUserStore>();
     builder.Services.AddScoped<IPasswordResetTokenStore, PostgresPasswordResetTokenStore>();
+    builder.Services.AddScoped<IBackendRoomStore, PostgresBackendRoomStore>();
 }
 else
 {
     builder.Services.AddSingleton<IAuthUserStore, InMemoryAuthUserStore>();
     builder.Services.AddSingleton<IPasswordResetTokenStore, InMemoryPasswordResetTokenStore>();
+    builder.Services.AddSingleton<IBackendRoomStore, InMemoryBackendRoomStore>();
 }
 
 builder.Services.AddHttpClient("github", client =>
@@ -78,6 +80,7 @@ builder.Services.AddScoped<IEmailSender>(serviceProvider =>
         : serviceProvider.GetRequiredService<ResendEmailSender>();
 });
 builder.Services.AddScoped<IAuthLabService, AuthLabService>();
+builder.Services.AddScoped<IBackendRoomService, BackendRoomService>();
 builder.Services.AddHostedService<PortfolioRefreshWorker>();
 
 var app = builder.Build();

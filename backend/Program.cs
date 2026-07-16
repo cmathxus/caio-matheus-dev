@@ -8,6 +8,7 @@ using CaioMatheusDev.Api.Infrastructure.Http;
 using CaioMatheusDev.Api.Infrastructure.Persistence;
 using CaioMatheusDev.Api.Infrastructure.Workers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ builder.Services.AddOpenApi();
 builder.Services.Configure<AuthLabOptions>(builder.Configuration.GetSection("AuthLab"));
 builder.Services.Configure<AuthFlowOptions>(builder.Configuration.GetSection("AuthLab"));
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
 
 if (!string.IsNullOrWhiteSpace(defaultConnection))
 {
@@ -54,13 +56,27 @@ builder.Services.AddHttpClient("default", client =>
     client.Timeout = TimeSpan.FromSeconds(6);
 });
 
+builder.Services.AddHttpClient<ResendEmailSender>(client =>
+{
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(12);
+});
+
 builder.Services.AddSingleton<IPortfolioService, PortfolioService>();
 builder.Services.AddSingleton<IGitHubService, GitHubService>();
 builder.Services.AddSingleton<IStatusCheckService, StatusCheckService>();
 builder.Services.AddSingleton<IAddressLookupService, AddressLookupService>();
 builder.Services.AddSingleton<IIntegrationLabService, IntegrationLabService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
-builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddScoped<IEmailSender>(serviceProvider =>
+{
+    var resendOptions = serviceProvider.GetRequiredService<IOptions<ResendOptions>>().Value;
+
+    return string.IsNullOrWhiteSpace(resendOptions.ApiKey)
+        ? serviceProvider.GetRequiredService<SmtpEmailSender>()
+        : serviceProvider.GetRequiredService<ResendEmailSender>();
+});
 builder.Services.AddScoped<IAuthLabService, AuthLabService>();
 builder.Services.AddHostedService<PortfolioRefreshWorker>();
 

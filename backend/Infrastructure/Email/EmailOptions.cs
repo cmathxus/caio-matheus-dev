@@ -15,5 +15,7 @@ public sealed class EmailOptions
     public bool EnableSsl { get; set; } = true;
 
     public string FrontendBaseUrl { get; set; } = "http://127.0.0.1:5173";
+
+    public string ResetGifUrl { get; set; } = "https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif";
 }
 

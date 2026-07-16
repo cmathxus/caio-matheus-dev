@@ -30,6 +30,12 @@ services:
         value: 587
       - key: Email__EnableSsl
         value: true
+      - key: Email__ResetGifUrl
+        value: https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif
+      - key: Resend__From
+        value: Caio Matheus Dev <onboarding@resend.dev>
+      - key: Resend__ApiKey
+        sync: false
 
   - type: web
     name: caio-matheus-dev-web

@@ -10,7 +10,7 @@ Curriculo web bilingue de Caio Matheus, com frontend em React/Vite e backend em 
 - Result Pattern com resposta padronizada.
 - Integracao com GitHub API.
 - Integration Lab com ViaCEP, GitHub user, busca de anime, clima por estado e autenticacao JWT.
-- Auth Lab com cadastro, login, JWT, senha com hash, Neon Postgres e recuperacao de senha por Gmail SMTP.
+- Auth Lab com cadastro, login, JWT, senha com hash, Neon Postgres e recuperacao de senha por Resend API HTTP.
 - Cache em memoria e worker em background.
 - Preparado para deploy no Render usando `render.yaml`.
 
@@ -31,7 +31,7 @@ backend/
     Http/            ViaCEP e health checks
     Persistence/     EF Core, Neon Postgres e migrations
     Auth/            JWT, store em memoria e contratos de auth
-    Email/           SMTP para recuperacao de senha
+    Email/           Resend API e fallback SMTP para recuperacao de senha
     Workers/         BackgroundService para atualizar cache
   Presentation/
     Controllers/     Controllers HTTP separados por recurso
@@ -87,7 +87,7 @@ Variaveis secretas para preencher no Render:
 
 ```text
 ConnectionStrings__DefaultConnection=postgresql://...
-Email__Password=app-password-do-gmail
+Resend__ApiKey=re_...
 ```
 
 O Render gera automaticamente:
@@ -97,6 +97,25 @@ AuthLab__Secret
 ```
 
 O backend aceita connection string do Neon tanto no formato `postgresql://...` quanto no formato Npgsql `Host=...;Database=...`.
+
+## Email de recuperacao no Render Free
+
+O Render Free bloqueia portas SMTP como `587`, entao o backend usa Resend via HTTP quando `Resend__ApiKey` esta configurado.
+Sem `Resend__ApiKey`, ele ainda tenta o fallback SMTP para ambiente local ou hospedagens que liberam SMTP.
+
+Variaveis para o Resend:
+
+```text
+Resend__ApiKey=re_...
+Resend__From=Caio Matheus Dev <onboarding@resend.dev>
+Email__ResetGifUrl=https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif
+```
+
+Para producao real, verifique um dominio no Resend e troque `Resend__From` para algo como:
+
+```text
+Caio Matheus Dev <noreply@seudominio.com>
+```
 
 ## Deploy do frontend no GitHub Pages
 
@@ -135,12 +154,9 @@ Caminho recomendado para a API:
    - `AuthLab__Secret`: gere uma string longa e aleatoria
    - `AuthLab__FrontendBaseUrl`: `https://cmathxus.github.io/caio-matheus-dev`
    - `ConnectionStrings__DefaultConnection`: connection string do Neon
-   - `Email__From`: seu e-mail Gmail
-   - `Email__Username`: seu e-mail Gmail
-   - `Email__Password`: app password do Gmail
-   - `Email__SmtpHost`: `smtp.gmail.com`
-   - `Email__SmtpPort`: `587`
-   - `Email__EnableSsl`: `true`
+   - `Resend__ApiKey`: API key do Resend
+   - `Resend__From`: `Caio Matheus Dev <onboarding@resend.dev>` ou um remetente do seu dominio verificado
+   - `Email__ResetGifUrl`: `https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif`
 5. Em `Auto-Deploy`, deixe `On Commit`.
 6. Clique em `Create Web Service`.
 

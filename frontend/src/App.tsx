@@ -3,8 +3,8 @@ import type { CSSProperties, FormEvent, MouseEvent, PointerEvent as ReactPointer
 import './App.css'
 
 type Language = 'pt' | 'en'
-type Page = 'home' | 'lab' | 'auth' | 'authReset' | 'certifications'
-type NavKey = 'home' | 'projects' | 'api' | 'lab' | 'certifications'
+type Page = 'home' | 'lab' | 'auth' | 'authReset' | 'certifications' | 'about'
+type NavKey = 'home' | 'projects' | 'api' | 'lab' | 'certifications' | 'about'
 type Theme = 'light' | 'dark'
 
 type ApiResponse<T> = {
@@ -565,6 +565,56 @@ const endpointOptions = [
   { label: 'GitHub repos', path: '/api/github/repos' },
 ]
 
+const authSessionStorageKey = 'caio-matheus-dev-auth-session'
+const authPageActiveStorageKey = 'caio-matheus-dev-auth-page-active'
+
+function getStoredAuthSession(): AuthSession | null {
+  try {
+    const rawSession = localStorage.getItem(authSessionStorageKey)
+
+    if (!rawSession) {
+      return null
+    }
+
+    const session = JSON.parse(rawSession) as AuthSession
+    const expiresAt = new Date(session.expiresAt).getTime()
+
+    if (!session.accessToken || !session.user?.id || Number.isNaN(expiresAt) || expiresAt <= Date.now()) {
+      clearStoredAuthSession()
+      return null
+    }
+
+    return session
+  } catch {
+    clearStoredAuthSession()
+    return null
+  }
+}
+
+function saveAuthSession(session: AuthSession) {
+  localStorage.setItem(authSessionStorageKey, JSON.stringify(session))
+  sessionStorage.setItem(authPageActiveStorageKey, 'true')
+}
+
+function clearStoredAuthSession() {
+  localStorage.removeItem(authSessionStorageKey)
+  sessionStorage.removeItem(authPageActiveStorageKey)
+}
+
+function getInitialPage(): Page {
+  const searchParams = new URLSearchParams(window.location.search)
+
+  if (searchParams.has('authResetToken')) {
+    return 'authReset'
+  }
+
+  if (sessionStorage.getItem(authPageActiveStorageKey) === 'true' && getStoredAuthSession()) {
+    return 'auth'
+  }
+
+  return 'home'
+}
+
 async function fetchApi<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`)
   const payload = (await response.json()) as ApiResponse<T>
@@ -644,7 +694,7 @@ function getInitialTheme(): Theme {
 function App() {
   const [language, setLanguage] = useState<Language>('pt')
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
-  const [page, setPage] = useState<Page>('home')
+  const [page, setPage] = useState<Page>(getInitialPage)
   const [activeNav, setActiveNav] = useState<NavKey>('home')
   const [data, setData] = useState<PortfolioData>(fallbackData)
   const [certifications, setCertifications] = useState<Certification[]>(fallbackCertifications)
@@ -672,6 +722,15 @@ function App() {
       window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
     }
   }, [])
+
+  useEffect(() => {
+    if (page === 'auth' || page === 'authReset') {
+      sessionStorage.setItem(authPageActiveStorageKey, 'true')
+      return
+    }
+
+    sessionStorage.removeItem(authPageActiveStorageKey)
+  }, [page])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -791,7 +850,7 @@ function App() {
     }
   }
 
-  function navigatePage(nextPage: Extract<Page, 'lab' | 'certifications'>) {
+  function navigatePage(nextPage: Extract<Page, 'lab' | 'certifications' | 'about'>) {
     pendingScrollTarget.current = null
     setActiveNav(nextPage)
     setPage(nextPage)
@@ -874,6 +933,17 @@ function App() {
             onClick={() => navigatePage('certifications')}
           >
             {t.navCertifications}
+          </button>
+          <button
+            ref={setNavButtonRef('about')}
+            className={`nav-help ${activeNav === 'about' ? 'active' : ''}`}
+            type="button"
+            aria-current={activeNav === 'about' ? 'page' : undefined}
+            aria-label={language === 'pt' ? 'Como este site foi feito' : 'How this site was built'}
+            title={language === 'pt' ? 'Como este site foi feito' : 'How this site was built'}
+            onClick={() => navigatePage('about')}
+          >
+            ?
           </button>
           <button
             ref={setNavButtonRef('lab')}
@@ -1060,6 +1130,8 @@ function App() {
         <AuthLabPage t={t} language={language} />
       ) : page === 'authReset' ? (
         <AuthResetPage t={t} language={language} />
+      ) : page === 'about' ? (
+        <AboutSitePage language={language} />
       ) : (
         <CertificationsPage
           t={t}
@@ -1088,10 +1160,36 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [session, setSession] = useState<AuthSession | null>(null)
+  const [session, setSession] = useState<AuthSession | null>(getStoredAuthSession)
   const [authResult, setAuthResult] = useState<unknown>({ waiting: true })
   const [loading, setLoading] = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
+
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+
+    const timeLeft = new Date(session.expiresAt).getTime() - Date.now()
+
+    if (timeLeft <= 0) {
+      clearStoredAuthSession()
+      setSession(null)
+      setAuthResult({ waiting: true })
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      clearStoredAuthSession()
+      setSession(null)
+      setAuthResult({
+        success: false,
+        error: language === 'pt' ? 'Sessão expirada. Faça login novamente.' : 'Session expired. Please log in again.',
+      })
+    }, Math.min(timeLeft, 2_147_483_647))
+
+    return () => window.clearTimeout(timeoutId)
+  }, [language, session])
 
   async function submitAuth(event: FormEvent) {
     event.preventDefault()
@@ -1103,6 +1201,7 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
         : await postApi<AuthSession>('/api/auth/login', { email, password })
 
       setSession(result)
+      saveAuthSession(result)
       setAuthResult({
         success: true,
         flow: mode,
@@ -1151,6 +1250,7 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
         session={session}
         language={language}
         onLogout={() => {
+          clearStoredAuthSession()
           setSession(null)
           setPassword('')
           setAuthResult({ waiting: true })
@@ -1258,6 +1358,108 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
         </div>
         <pre>{JSON.stringify(authResult, null, 2)}</pre>
       </article>
+    </section>
+  )
+}
+
+function AboutSitePage({ language }: { language: Language }) {
+  const isPt = language === 'pt'
+  const workflow = [
+    {
+      number: '01',
+      title: 'Front-end',
+      text: isPt
+        ? 'React, TypeScript e Vite montam a experiência pública, tema claro/escuro, console interativo e telas do Auth Lab.'
+        : 'React, TypeScript and Vite power the public experience, light/dark themes, interactive console and Auth Lab screens.',
+      command: 'npm run build',
+    },
+    {
+      number: '02',
+      title: 'API',
+      text: isPt
+        ? 'ASP.NET Core em C# organiza controllers, services, integrações públicas, respostas padronizadas e validações.'
+        : 'ASP.NET Core in C# organizes controllers, services, public integrations, standardized responses and validation.',
+      command: 'dotnet run',
+    },
+    {
+      number: '03',
+      title: isPt ? 'Autenticação' : 'Authentication',
+      text: isPt
+        ? 'JWT protege o Backend Room. O login fica salvo no navegador até o token expirar, sem perder sessão no F5.'
+        : 'JWT protects the Backend Room. Login persists in the browser until the token expires, surviving refreshes.',
+      command: 'Authorization: Bearer',
+    },
+    {
+      number: '04',
+      title: isPt ? 'Persistência' : 'Persistence',
+      text: isPt
+        ? 'Neon Postgres + Entity Framework Core salvam usuários, notas, canvas, posts da comunidade, likes e expiração de 24h.'
+        : 'Neon Postgres + Entity Framework Core store users, notes, canvas data, community posts, likes and 24h expiration.',
+      command: 'ef migrations',
+    },
+    {
+      number: '05',
+      title: isPt ? 'Automação' : 'Automation',
+      text: isPt
+        ? 'GitHub Actions publica o front no GitHub Pages e o Render hospeda o backend em produção.'
+        : 'GitHub Actions publishes the front-end to GitHub Pages and Render hosts the backend in production.',
+      command: 'git push main',
+    },
+    {
+      number: '06',
+      title: isPt ? 'Integrações' : 'Integrations',
+      text: isPt
+        ? 'ViaCEP, GitHub API, Kitsu, Open-Meteo e Resend mostram consumo de APIs, normalização e fluxos reais.'
+        : 'ViaCEP, GitHub API, Kitsu, Open-Meteo and Resend show API consumption, normalization and real flows.',
+      command: 'GET /api/lab',
+    },
+  ]
+
+  const stack = ['C#', 'ASP.NET Core', 'React', 'TypeScript', 'Vite', 'PostgreSQL', 'EF Core', 'JWT', 'Render', 'GitHub Pages']
+
+  return (
+    <section className="about-page">
+      <div className="about-terminal-line">
+        <strong>portfolio:~$</strong>
+        <span>explain --architecture</span>
+      </div>
+
+      <div className="about-hero">
+        <div>
+          <p className="eyebrow">{isPt ? 'Por baixo do capô' : 'Under the hood'}</p>
+          <h1>{isPt ? 'Como este site foi feito.' : 'How this site was built.'}</h1>
+          <p className="lead">
+            {isPt
+              ? 'Um portfólio com cara de front-end, mas feito para demonstrar backend: API em camadas, autenticação JWT, banco real, integrações públicas e deploy automatizado.'
+              : 'A portfolio that looks like a front-end project, but was built to demonstrate backend skills: layered API, JWT auth, real database, public integrations and automated deploys.'}
+          </p>
+        </div>
+
+        <aside className="about-status-card" aria-label={isPt ? 'Resumo técnico' : 'Technical summary'}>
+          <pre>{`status: ${isPt ? 'em produção' : 'in production'}
+api: ASP.NET Core
+auth: JWT + password hash
+db: Neon PostgreSQL
+deploy: GitHub Pages + Render`}</pre>
+        </aside>
+      </div>
+
+      <div className="about-stack-strip" aria-label="Stack">
+        {stack.map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
+
+      <div className="about-flow">
+        {workflow.map((item) => (
+          <article className="about-flow-card" key={item.number}>
+            <span>{item.number}</span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+            <code>{item.command}</code>
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -1881,6 +2083,7 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
 
       const login = await postApi<AuthSession>('/api/auth/login', { email, password })
       setSession(login)
+      saveAuthSession(login)
       setResult({
         success: true,
         message: t.authResetSuccess,
@@ -1905,6 +2108,7 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
         session={session}
         language={language}
         onLogout={() => {
+          clearStoredAuthSession()
           setSession(null)
           setPassword('')
           setConfirmPassword('')

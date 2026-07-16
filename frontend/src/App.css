@@ -195,6 +195,12 @@ nav button {
   padding: 0 12px;
 }
 
+nav button.nav-help {
+  min-width: 36px;
+  padding: 0 10px;
+  font-weight: 750;
+}
+
 nav button:hover,
 .segmented-control button:hover,
 .theme-toggle:hover,
@@ -226,6 +232,11 @@ nav button.active:hover {
   border-color: var(--fg);
   background: var(--fg);
   color: var(--bg);
+}
+
+.main-nav .nav-help.active,
+.main-nav .nav-help.active:hover {
+  color: var(--fg);
 }
 
 .toolbar {
@@ -698,6 +709,8 @@ p {
 .lab-card,
 .lab-response,
 .auth-panel,
+.about-status-card,
+.about-flow-card,
 .certification-card,
 .json-dialog {
   border: 1px solid var(--border);
@@ -1370,6 +1383,143 @@ p {
 
 .lab-teaser .button.primary:hover::after {
   transform: translateX(3px);
+}
+
+.about-page {
+  padding: 72px 0 88px;
+}
+
+.about-terminal-line {
+  display: inline-flex;
+  gap: 8px;
+  margin-bottom: 44px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.88rem;
+}
+
+.about-terminal-line strong {
+  color: var(--fg);
+  font-weight: 650;
+}
+
+.about-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 48px;
+  align-items: center;
+  padding-bottom: 52px;
+  border-bottom: 1px dashed var(--border-strong);
+}
+
+.about-hero h1 {
+  max-width: 780px;
+  margin-bottom: 18px;
+  font-size: clamp(3rem, 7vw, 6.2rem);
+}
+
+.about-hero .lead {
+  max-width: 720px;
+  margin-bottom: 0;
+}
+
+.about-status-card {
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--fg) 5%, transparent), transparent 52%),
+    var(--surface);
+}
+
+.about-status-card pre {
+  max-height: none;
+  min-height: 220px;
+  background:
+    linear-gradient(transparent 95%, color-mix(in srgb, var(--code-fg) 8%, transparent) 96%),
+    var(--code-bg);
+  background-size: 100% 28px;
+}
+
+.about-stack-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 24px 0;
+  border-bottom: 1px dashed var(--border-strong);
+}
+
+.about-stack-strip span {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--fg);
+  padding: 0 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.about-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 28px;
+}
+
+.about-flow-card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-height: 230px;
+  padding: 18px;
+  overflow: hidden;
+  transition:
+    border-color 180ms var(--ease),
+    background-color 180ms var(--ease),
+    transform 160ms var(--ease);
+}
+
+.about-flow-card::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--fg);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 7px var(--surface-muted);
+}
+
+.about-flow-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+  transform: translateY(-2px);
+}
+
+.about-flow-card > span {
+  color: var(--subtle);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.about-flow-card h3,
+.about-flow-card p {
+  max-width: 94%;
+}
+
+.about-flow-card p {
+  margin-bottom: 0;
+}
+
+.about-flow-card code {
+  align-self: end;
+  width: fit-content;
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
 }
 
 .lab-page {
@@ -2575,9 +2725,14 @@ pre {
   .details-grid,
   .lab-grid,
   .auth-grid,
+  .about-hero,
   .backend-room-top,
   .backend-room-grid {
     grid-template-columns: 1fr;
+  }
+
+  .about-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .community-feed {
@@ -2637,8 +2792,26 @@ pre {
   .project-showcase,
   .repo-list,
   .skills-grid,
+  .about-flow,
   .profile-panel {
     grid-template-columns: 1fr;
+  }
+
+  .about-page {
+    padding-top: 48px;
+  }
+
+  .about-terminal-line {
+    margin-bottom: 28px;
+  }
+
+  .about-hero {
+    gap: 28px;
+    padding-bottom: 36px;
+  }
+
+  .about-flow-card {
+    min-height: 0;
   }
 
   .profile-panel div {

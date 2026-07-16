@@ -779,6 +779,13 @@ function App() {
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
   }
 
+  function navigateAuthLab() {
+    pendingScrollTarget.current = null
+    setActiveNav('lab')
+    setPage('auth')
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
+  }
+
   function setNavButtonRef(key: NavKey) {
     return (node: HTMLButtonElement | null) => {
       navButtonRefs.current[key] = node
@@ -861,6 +868,15 @@ function App() {
         </nav>
 
         <div className="toolbar" aria-label="Preferences">
+          <button
+            className={`account-shortcut ${page === 'auth' || page === 'authReset' ? 'active' : ''}`}
+            type="button"
+            onClick={navigateAuthLab}
+            aria-label={t.authOpen}
+            title={t.authOpen}
+          >
+            <span className="account-glyph" aria-hidden="true" />
+          </button>
           <div
             className={`segmented-control language-switch ${language === 'en' ? 'is-en' : 'is-pt'}`}
             aria-label="Language selector"

@@ -1,0 +1,6 @@
+@CaioMatheusDev.Api_HostAddress = http://localhost:5089
+
+GET {{CaioMatheusDev.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

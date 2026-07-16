@@ -562,11 +562,16 @@ p {
 .endpoint-list button:hover {
   border-color: var(--border-strong);
   background: var(--surface-raised);
+  color: var(--fg);
 }
 
 .button.primary:hover,
 .lab-form button:hover {
-  opacity: 0.9;
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .profile-panel {
@@ -1568,43 +1573,93 @@ p {
 .password-toggle {
   position: absolute;
   top: 50%;
-  right: 7px;
+  right: 8px;
   display: grid;
-  width: 30px;
-  height: 30px;
-  min-height: 30px;
+  width: 32px;
+  height: 28px;
+  min-height: 28px;
   place-items: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-muted) 86%, var(--fg));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   transform: translateY(-50%);
   transition:
-    border-color 160ms var(--ease),
-    background-color 160ms var(--ease),
     opacity 160ms var(--ease),
     transform 160ms var(--ease);
 }
 
-.password-toggle img {
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
-  opacity: 0.74;
+.password-eye {
+  grid-area: 1 / 1;
   transition:
-    opacity 160ms var(--ease),
-    transform 220ms var(--ease);
+    opacity 220ms var(--ease),
+    transform 220ms var(--ease),
+    filter 220ms var(--ease);
+}
+
+.password-eye-normal {
+  width: 30px;
+  height: 22px;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: contrast(1.08);
+  transform: translateY(0) scale(1);
+}
+
+.password-eye-sharingan {
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+  opacity: 0;
+  filter: saturate(1.35) contrast(1.12) drop-shadow(0 0 0 transparent);
+  transform: rotate(0deg) scale(0.78);
+  transition: opacity 180ms var(--ease);
 }
 
 .password-toggle:hover,
 .password-toggle.is-visible {
-  border-color: var(--border-strong);
-  background: var(--surface-raised);
+  background: transparent;
 }
 
-.password-toggle:hover img,
-.password-toggle.is-visible img {
+.password-toggle:hover .password-eye-normal {
   opacity: 1;
-  transform: rotate(26deg) scale(1.04);
+  transform: translateY(-1px) scale(1.04);
+}
+
+.password-toggle.is-visible .password-eye-normal {
+  opacity: 0;
+  transform: translateY(0) scale(0.74);
+}
+
+.password-toggle.is-visible .password-eye-sharingan {
+  opacity: 1;
+  filter: saturate(1.55) contrast(1.16) drop-shadow(0 0 8px rgba(239, 68, 68, 0.42));
+  transform: rotate(360deg) scale(1.08);
+}
+
+.password-toggle.is-visible:hover .password-eye-sharingan {
+  transform: rotate(360deg) scale(1.08);
+}
+
+.password-toggle:active .password-eye-sharingan {
+  transform: rotate(360deg) scale(1.02);
+}
+
+@keyframes sharingan-awaken {
+  0% {
+    opacity: 0;
+    filter: saturate(0.8) contrast(1.2) drop-shadow(0 0 0 rgba(239, 68, 68, 0));
+    transform: rotate(0deg) scale(0.78);
+  }
+
+  100% {
+    opacity: 1;
+    filter: saturate(1.55) contrast(1.16) drop-shadow(0 0 8px rgba(239, 68, 68, 0.42));
+    transform: rotate(360deg) scale(1.08);
+  }
+}
+
+.password-toggle.is-visible .password-eye-sharingan {
+  animation: sharingan-awaken 560ms linear both;
 }
 
 .auth-form .button,
@@ -1992,10 +2047,50 @@ p {
 .button:disabled,
 .auth-form button:disabled,
 .auth-token-panel button:disabled,
+.lab-form button:disabled,
 .backend-room-page button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--muted);
+  opacity: 1;
   transform: none;
+}
+
+:root[data-theme='dark'] .button:disabled,
+:root[data-theme='dark'] .auth-form button:disabled,
+:root[data-theme='dark'] .auth-token-panel button:disabled,
+:root[data-theme='dark'] .lab-form button:disabled,
+:root[data-theme='dark'] .backend-room-page button:disabled {
+  border-color: #3f3f46;
+  background: #18181b;
+  color: #d4d4d8;
+}
+
+.button:disabled:hover,
+.button.primary:disabled,
+.button.primary:disabled:hover,
+.auth-form button:disabled:hover,
+.auth-token-panel button:disabled:hover,
+.lab-form button:disabled:hover,
+.backend-room-page button:disabled:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--muted);
+  opacity: 1;
+  transform: none;
+}
+
+:root[data-theme='dark'] .button:disabled:hover,
+:root[data-theme='dark'] .button.primary:disabled,
+:root[data-theme='dark'] .button.primary:disabled:hover,
+:root[data-theme='dark'] .auth-form button:disabled:hover,
+:root[data-theme='dark'] .auth-token-panel button:disabled:hover,
+:root[data-theme='dark'] .lab-form button:disabled:hover,
+:root[data-theme='dark'] .backend-room-page button:disabled:hover {
+  border-color: #3f3f46;
+  background: #18181b;
+  color: #d4d4d8;
 }
 
 .certification-grid {

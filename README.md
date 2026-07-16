@@ -1,173 +1,74 @@
-# caio-matheus-dev
+# Caio Matheus Dev
 
-Curriculo web bilingue de Caio Matheus, com frontend em React/Vite e backend em ASP.NET Core.
+Portfolio web de Caio Matheus, desenvolvedor backend focado em C#/.NET, APIs, integrações e automações.
 
-## O que o projeto demonstra
+O projeto nasceu como um currículo online, mas foi além de uma página estática: ele apresenta minha trajetória, projetos, certificações e também inclui áreas interativas para demonstrar, na prática, algumas habilidades de backend.
 
-- Curriculo e portfolio em portugues e ingles.
-- API propria em ASP.NET Core com arquitetura separada por Application, Domain, Infrastructure e Presentation.
-- Controllers finos chamando services, sem regra de negocio no `Program.cs`.
-- Result Pattern com resposta padronizada.
-- Integracao com GitHub API.
-- Integration Lab com ViaCEP, GitHub user, busca de anime, clima por estado e autenticacao JWT.
-- Auth Lab com cadastro, login, JWT, senha com hash, Neon Postgres e recuperacao de senha por Resend API HTTP.
-- Backend Room pos-login com notas privadas e canvas persistido por usuario autenticado.
-- Cache em memoria e worker em background.
-- Preparado para deploy no Render usando `render.yaml`.
+## Sobre mim
 
-## Arquitetura do backend
+Sou desenvolvedor backend em formação e atuo com suporte técnico especializado, bancos de dados, integrações corporativas e desenvolvimento de ferramentas internas.
 
-```text
-backend/
-  Application/
-    Common/          Result Pattern e ApiResponse
-    Interfaces/      Contratos dos services
-    Services/        Casos de uso simples do portfolio
-  Domain/
-    Portfolio/       Modelos do curriculo e projetos
-    Integrations/    Modelos de GitHub, status e ViaCEP
-  Infrastructure/
-    Data/            Dados estaticos do portfolio
-    GitHub/          Cliente e mapeamento da API do GitHub
-    Http/            ViaCEP e health checks
-    Persistence/     EF Core, Neon Postgres e migrations
-    Auth/            JWT, store em memoria e contratos de auth
-    Email/           Resend API e fallback SMTP para recuperacao de senha
-    Workers/         BackgroundService para atualizar cache
-  Presentation/
-    Controllers/     Controllers HTTP separados por recurso
-```
+Meu foco atual é construir soluções com:
 
-## Rodando localmente
+- C# e ASP.NET Core
+- APIs REST
+- SQL, PostgreSQL e modelagem de dados
+- Autenticação JWT
+- Integrações com APIs externas
+- Automação de processos
+- Organização de arquitetura em camadas
 
-Backend:
+## Sobre o portfolio
 
-```bash
-cd backend
-dotnet run
-```
+O site é bilíngue, com versão em português e inglês, tema claro/escuro e uma interface pensada para ser limpa, direta e interativa.
 
-Frontend:
+Além das seções tradicionais de apresentação, ele também possui:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+- lista de projetos selecionados;
+- experiências profissionais com detalhes expansíveis;
+- certificações com visualização das credenciais;
+- Integration Lab com chamadas para APIs públicas;
+- Auth Lab com registro, login, JWT e recuperação de senha;
+- Backend Room, uma área privada onde o usuário pode salvar notas e desenhos na própria conta.
 
-O frontend usa `VITE_API_BASE_URL`. Copie `frontend/.env.example` para `frontend/.env` se quiser apontar para outra API.
+## Projetos em destaque
 
-## Endpoints principais
+### iDSupport / RmaWorker
 
-```text
-GET /api/profile
-GET /api/projects
-GET /api/skills
-GET /api/experience
-GET /api/github/repos
-GET /api/status/projects
-GET /api/lab/cep/{cep}
-GET /api/lab/github/{username}
-GET /api/lab/anime?query=naruto
-GET /api/lab/weather?city=Sao%20Paulo&latitude=-23.5505&longitude=-46.6333
-POST /api/auth/register
-POST /api/auth/login
-GET /api/auth/me
-POST /api/auth/forgot-password
-POST /api/auth/reset-password
-GET /api/backend-room
-POST /api/backend-room/notes
-PUT /api/backend-room/notes/{id}
-DELETE /api/backend-room/notes/{id}
-PUT /api/backend-room/drawing
-```
+Aplicação interna em produção na Control iD para apoiar fluxos de suporte, RMA e ordens de serviço.
 
-## Deploy no Render
+[Abrir repositório](https://github.com/ya-labs/RmaWorker)
 
-O repositorio possui `render.yaml` com dois servicos:
+### Rental Manager
 
-- `caio-matheus-dev`: API ASP.NET Core em Docker.
-- `caio-matheus-dev-web`: frontend Vite como static site.
+API solo para organização de imóveis, contratos, locatários e pagamentos, com foco em modelagem de domínio e persistência.
 
-Variaveis secretas para preencher no Render:
+[Abrir repositório](https://github.com/cmathxus/rental-manager)
 
-```text
-ConnectionStrings__DefaultConnection=Host=...;Database=...;Username=...;Password=...;SSL Mode=Require
-Resend__ApiKey=re_...
-```
+### Cade o Dano
 
-O Render gera automaticamente:
+Aplicação com dados de League of Legends e integração com API externa.
 
-```text
-AuthLab__Secret
-```
+[Abrir repositório](https://github.com/ya-labs/CADE-O-DANO)
 
-O backend aceita connection string do Neon no formato de URL gerado pelo painel ou no formato Npgsql `Host=...;Database=...`.
+### YAHub
 
-## Email de recuperacao no Render Free
+Site oficial da YA LABS usado como presença pública dos projetos.
 
-O Render Free bloqueia portas SMTP como `587`, entao o backend usa Resend via HTTP quando `Resend__ApiKey` esta configurado.
-Sem `Resend__ApiKey`, ele ainda tenta o fallback SMTP para ambiente local ou hospedagens que liberam SMTP.
+[Abrir repositório](https://github.com/ya-labs/YAHub)
 
-Variaveis para o Resend:
+## O que este projeto demonstra
 
-```text
-Resend__ApiKey=re_...
-Resend__From=Caio Matheus Dev <noreply@yahub.com.br>
-Email__ResetGifUrl=https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif
-```
+- Criação de uma experiência web para apresentação profissional.
+- Consumo de uma API própria em ASP.NET Core.
+- Integração com serviços externos.
+- Fluxo completo de autenticação com JWT.
+- Persistência de dados por usuário.
+- Separação entre frontend, backend, domínio, serviços e infraestrutura.
+- Cuidado com usabilidade, responsividade e identidade visual.
 
-Com o dominio `yahub.com.br` verificado no Resend, use:
+## Links
 
-```text
-Caio Matheus Dev <noreply@yahub.com.br>
-```
-
-## Deploy do frontend no GitHub Pages
-
-O workflow `.github/workflows/deploy-pages.yml` publica o frontend automaticamente a cada push na branch `main`.
-
-No GitHub:
-
-1. Abra `Settings` > `Pages`.
-2. Em `Build and deployment`, selecione `Source: GitHub Actions`.
-3. Abra `Settings` > `Secrets and variables` > `Actions` > `Variables`.
-4. Crie a variavel `VITE_API_BASE_URL` com a URL publica da API no Render.
-5. Faca push na `main` ou rode manualmente em `Actions` > `Deploy frontend to GitHub Pages`.
-
-URL esperada do Pages:
-
-```text
-https://cmathxus.github.io/caio-matheus-dev/
-```
-
-## Deploy do backend no Render
-
-Caminho recomendado para a API:
-
-1. No Render, clique em `New` > `Web Service`.
-2. Escolha `Git Provider` e conecte o repositorio `cmathxus/caio-matheus-dev`.
-3. Configure:
-   - Name: `caio-matheus-dev`
-   - Branch: `main`
-   - Root Directory: `backend`
-   - Runtime: `Docker`
-   - Instance Type: `Free`
-4. Em Environment, preencha:
-   - `ASPNETCORE_ENVIRONMENT`: `Production`
-   - `AuthLab__Issuer`: `caio-matheus-dev`
-   - `AuthLab__Audience`: `portfolio-auth-lab`
-   - `AuthLab__Secret`: gere uma string longa e aleatoria
-   - `AuthLab__FrontendBaseUrl`: `https://cmathxus.github.io/caio-matheus-dev`
-   - `ConnectionStrings__DefaultConnection`: connection string do Neon
-   - `Resend__ApiKey`: API key do Resend
-   - `Resend__From`: `Caio Matheus Dev <noreply@yahub.com.br>`
-   - `Email__ResetGifUrl`: `https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif`
-5. Em `Auto-Deploy`, deixe `On Commit`.
-6. Clique em `Create Web Service`.
-
-Depois do deploy, teste:
-
-```text
-https://caio-matheus-dev.onrender.com/api/profile
-```
+- Portfolio: [https://cmathxus.github.io/caio-matheus-dev/](https://cmathxus.github.io/caio-matheus-dev/)
+- GitHub: [https://github.com/cmathxus](https://github.com/cmathxus)
+- LinkedIn: [https://www.linkedin.com/in/caio-matheus-b68977236](https://www.linkedin.com/in/caio-matheus-b68977236)

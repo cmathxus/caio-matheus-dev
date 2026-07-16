@@ -1763,7 +1763,8 @@ function PasswordField({
           aria-label={visible ? 'Ocultar senha' : 'Exibir senha'}
           onClick={() => setVisible((current) => !current)}
         >
-          <img src={assetUrl('sharingan-password.png')} alt="" aria-hidden="true" />
+          <img className="password-eye password-eye-normal" src={assetUrl('anime-eye-password.png')} alt="" aria-hidden="true" />
+          <img className="password-eye password-eye-sharingan" src={assetUrl('sharingan-password.png')} alt="" aria-hidden="true" />
         </button>
       </span>
     </label>

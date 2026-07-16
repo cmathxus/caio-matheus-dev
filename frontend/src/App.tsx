@@ -3,7 +3,7 @@ import type { CSSProperties, FormEvent, MouseEvent } from 'react'
 import './App.css'
 
 type Language = 'pt' | 'en'
-type Page = 'home' | 'lab' | 'certifications'
+type Page = 'home' | 'lab' | 'auth' | 'authReset' | 'certifications'
 type NavKey = 'home' | 'projects' | 'api' | 'lab' | 'certifications'
 type Theme = 'light' | 'dark'
 
@@ -110,6 +110,32 @@ type ConsoleEntry = {
   type: 'command' | 'output' | 'error'
   text: string
   id?: string
+}
+
+type AuthUserProfile = {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
+type AuthSession = {
+  accessToken: string
+  tokenType: string
+  expiresAt: string
+  user: AuthUserProfile
+}
+
+type PasswordResetRequestResult = {
+  message: string
+  emailConfigured: boolean
+  expiresAt: string | null
+  developmentToken: string | null
+  resetUrl: string | null
+}
+
+type PasswordResetConfirmation = {
+  message: string
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5089'
@@ -350,6 +376,30 @@ const copy = {
     animeHint: 'Kitsu: busca animes por nome sem autenticação.',
     weatherTitle: 'Clima',
     weatherHint: 'Open-Meteo: consulta clima atual pela capital do estado.',
+    authTitle: 'Auth JWT',
+    authHint: 'Registro, login, token assinado e endpoint protegido em ASP.NET Core.',
+    authOpen: 'Abrir Auth Lab',
+    authPageTitle: 'Auth Lab',
+    authPageText: 'Fluxo simples para demonstrar registro, login, geração de JWT e consumo de rota protegida com Bearer token.',
+    authMemoryNote: 'Usuários persistidos em Neon Postgres, com senha protegida por hash e token JWT.',
+    authRegister: 'Registrar',
+    authLogin: 'Login',
+    authValidate: 'Validar token',
+    authName: 'Nome',
+    authEmail: 'E-mail',
+    authPassword: 'Senha',
+    authForgot: 'Esqueci a senha',
+    authReset: 'Redefinir',
+    authNewPassword: 'Nova senha',
+    authConfirmPassword: 'Confirmar senha',
+    authResetToken: 'Token de recuperação',
+    authRecoveryHint: 'O link de recuperação é enviado para o e-mail preenchido no login.',
+    authResetPageTitle: 'Nova senha',
+    authResetPageText: 'Informe uma nova senha. O email e o token já vieram pelo link de recuperação.',
+    authPasswordMismatch: 'As senhas não conferem.',
+    authResetSuccess: 'Senha redefinida e login efetuado.',
+    authToken: 'Token JWT',
+    authProtected: 'Rota protegida',
     cepPlaceholder: '07090000',
     githubPlaceholder: 'cmathxus',
     animePlaceholder: 'Fullmetal Alchemist',
@@ -404,6 +454,30 @@ const copy = {
     animeHint: 'Kitsu: searches anime by name without authentication.',
     weatherTitle: 'Weather',
     weatherHint: 'Open-Meteo: fetches current weather using the state capital.',
+    authTitle: 'JWT Auth',
+    authHint: 'Register, login, signed token and protected ASP.NET Core endpoint.',
+    authOpen: 'Open Auth Lab',
+    authPageTitle: 'Auth Lab',
+    authPageText: 'Simple flow demonstrating registration, login, JWT generation and protected route consumption with a Bearer token.',
+    authMemoryNote: 'Users are persisted in Neon Postgres, with hashed passwords and JWT tokens.',
+    authRegister: 'Register',
+    authLogin: 'Login',
+    authValidate: 'Validate token',
+    authName: 'Name',
+    authEmail: 'Email',
+    authPassword: 'Password',
+    authForgot: 'Forgot password',
+    authReset: 'Reset',
+    authNewPassword: 'New password',
+    authConfirmPassword: 'Confirm password',
+    authResetToken: 'Recovery token',
+    authRecoveryHint: 'The recovery link is sent to the email filled in the login form.',
+    authResetPageTitle: 'New password',
+    authResetPageText: 'Set a new password. The email and token came from the recovery link.',
+    authPasswordMismatch: 'Passwords do not match.',
+    authResetSuccess: 'Password reset and login completed.',
+    authToken: 'JWT token',
+    authProtected: 'Protected route',
     cepPlaceholder: '07090000',
     githubPlaceholder: 'cmathxus',
     animePlaceholder: 'Fullmetal Alchemist',
@@ -443,6 +517,29 @@ async function fetchRaw(path: string): Promise<unknown> {
   return response.json()
 }
 
+async function postApi<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = (await response.json()) as ApiResponse<T>
+
+  if (!response.ok || !payload.success || payload.data === null) {
+    throw new Error(payload.error?.message ?? `Request failed: ${response.status}`)
+  }
+
+  return payload.data
+}
+
+async function fetchWithToken(path: string, token: string): Promise<unknown> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  return response.json()
+}
+
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem('theme')
   if (stored === 'light' || stored === 'dark') {
@@ -474,6 +571,17 @@ function App() {
   const t = copy[language]
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+
+    if (searchParams.has('authResetToken')) {
+      pendingScrollTarget.current = null
+      setActiveNav('lab')
+      setPage('authReset')
+      window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
+    }
+  }, [])
+
+  useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
     localStorage.setItem('theme', theme)
@@ -482,7 +590,7 @@ function App() {
   useEffect(() => {
     if (page !== 'home') {
       pendingScrollTarget.current = null
-      setActiveNav(page)
+      setActiveNav(page === 'auth' || page === 'authReset' ? 'lab' : page)
       return
     }
 
@@ -834,7 +942,12 @@ function App() {
           setAnimeQuery={setAnimeQuery}
           setWeatherState={setWeatherState}
           runLab={runLab}
+          setPage={setPage}
         />
+      ) : page === 'auth' ? (
+        <AuthLabPage t={t} language={language} />
+      ) : page === 'authReset' ? (
+        <AuthResetPage t={t} language={language} />
       ) : (
         <CertificationsPage
           t={t}
@@ -855,6 +968,327 @@ function App() {
         </div>
       )}
     </main>
+  )
+}
+
+function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language }) {
+  const [mode, setMode] = useState<'register' | 'login'>('register')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [session, setSession] = useState<AuthSession | null>(null)
+  const [authResult, setAuthResult] = useState<unknown>({ waiting: true })
+  const [loading, setLoading] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const locale = language === 'pt' ? 'pt-BR' : 'en-US'
+
+  async function submitAuth(event: FormEvent) {
+    event.preventDefault()
+    setLoading(true)
+
+    try {
+      const result = mode === 'register'
+        ? await postApi<AuthSession>('/api/auth/register', { name, email, password })
+        : await postApi<AuthSession>('/api/auth/login', { email, password })
+
+      setSession(result)
+      setAuthResult({
+        success: true,
+        flow: mode,
+        user: result.user,
+        tokenType: result.tokenType,
+        expiresAt: result.expiresAt,
+        preview: `${result.accessToken.slice(0, 42)}...`,
+      })
+    } catch (error) {
+      setAuthResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Request failed',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function requestPasswordReset() {
+    setForgotLoading(true)
+
+    try {
+      const result = await postApi<PasswordResetRequestResult>('/api/auth/forgot-password', { email })
+      setAuthResult({
+        success: true,
+        flow: 'forgot-password',
+        email,
+        message: result.message,
+        emailConfigured: result.emailConfigured,
+        expiresAt: result.expiresAt,
+        resetUrl: result.emailConfigured ? undefined : result.resetUrl,
+      })
+    } catch (error) {
+      setAuthResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Request failed',
+      })
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  async function validateToken() {
+    if (!session) return
+
+    setLoading(true)
+
+    try {
+      setAuthResult(await fetchWithToken('/api/auth/me', session.accessToken))
+    } catch (error) {
+      setAuthResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Request failed',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section className="lab-page auth-page">
+      <SectionHeading title={t.authPageTitle} text={t.authPageText} />
+
+      <div className="auth-grid">
+        <article className="auth-panel">
+          <div className="auth-tabs" aria-label="Auth mode">
+            <button
+              className={mode === 'register' ? 'active' : ''}
+              type="button"
+              onClick={() => setMode('register')}
+            >
+              {t.authRegister}
+            </button>
+            <button
+              className={mode === 'login' ? 'active' : ''}
+              type="button"
+              onClick={() => setMode('login')}
+            >
+              {t.authLogin}
+            </button>
+          </div>
+
+          <form className="auth-form" onSubmit={submitAuth}>
+            {mode === 'register' && (
+              <label>
+                {t.authName}
+                <input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  autoComplete="name"
+                  placeholder="Sasuke Uchiha"
+                />
+              </label>
+            )}
+
+            <label>
+              {t.authEmail}
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="sasuke@email.com"
+              />
+            </label>
+
+            <PasswordField
+              label={t.authPassword}
+              value={password}
+              onChange={setPassword}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+            />
+
+            <div className="auth-actions-row">
+              <button className="button primary" type="submit" disabled={loading}>
+                {loading ? '...' : mode === 'register' ? t.authRegister : t.authLogin}
+              </button>
+              {mode === 'login' && (
+                <button
+                  className="auth-forgot-link"
+                  type="button"
+                  disabled={forgotLoading}
+                  onClick={requestPasswordReset}
+                >
+                  {forgotLoading ? '...' : t.authForgot}
+                </button>
+              )}
+            </div>
+          </form>
+
+          <p className="auth-note">{t.authMemoryNote}</p>
+          {mode === 'login' && <p className="auth-note">{t.authRecoveryHint}</p>}
+        </article>
+
+        <article className="auth-panel auth-token-panel">
+          <div className="panel-title">
+            <h3>{t.authToken}</h3>
+            {session && <span>{new Date(session.expiresAt).toLocaleString(locale)}</span>}
+          </div>
+
+          <pre className="auth-token">
+            {session?.accessToken ?? (language === 'pt'
+              ? 'O token aparece aqui depois do registro ou login.'
+              : 'The token appears here after registering or logging in.')}
+          </pre>
+
+          <button className="button" type="button" disabled={!session || loading} onClick={validateToken}>
+            {t.authValidate}
+          </button>
+        </article>
+      </div>
+
+      <article className="lab-response auth-response">
+        <div className="panel-title">
+          <h3>{t.authProtected}</h3>
+          <code>GET /api/auth/me</code>
+        </div>
+        <pre>{JSON.stringify(authResult, null, 2)}</pre>
+      </article>
+    </section>
+  )
+}
+
+function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language }) {
+  const searchParams = new URLSearchParams(window.location.search)
+  const email = searchParams.get('authResetEmail') ?? ''
+  const token = searchParams.get('authResetToken') ?? ''
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [session, setSession] = useState<AuthSession | null>(null)
+  const [result, setResult] = useState<unknown>({ waiting: true })
+  const [loading, setLoading] = useState(false)
+  const locale = language === 'pt' ? 'pt-BR' : 'en-US'
+
+  async function submitReset(event: FormEvent) {
+    event.preventDefault()
+
+    if (password !== confirmPassword) {
+      setResult({ success: false, error: t.authPasswordMismatch })
+      return
+    }
+
+    if (!email || !token) {
+      setResult({
+        success: false,
+        error: language === 'pt'
+          ? 'Link de recuperação inválido ou incompleto.'
+          : 'Invalid or incomplete recovery link.',
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await postApi<PasswordResetConfirmation>('/api/auth/reset-password', {
+        email,
+        token,
+        newPassword: password,
+      })
+
+      const login = await postApi<AuthSession>('/api/auth/login', { email, password })
+      setSession(login)
+      setResult({
+        success: true,
+        message: t.authResetSuccess,
+        user: login.user,
+        tokenType: login.tokenType,
+        expiresAt: login.expiresAt,
+        preview: `${login.accessToken.slice(0, 42)}...`,
+      })
+    } catch (error) {
+      setResult({
+        success: false,
+        error: error instanceof Error ? error.message : 'Request failed',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section className="lab-page auth-page auth-reset-page">
+      <SectionHeading title={t.authResetPageTitle} text={t.authResetPageText} />
+
+      <div className="auth-grid">
+        <article className="auth-panel">
+          <form className="auth-form" onSubmit={submitReset}>
+            <PasswordField
+              label={t.authNewPassword}
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              autoFocus
+            />
+
+            <PasswordField
+              label={t.authConfirmPassword}
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              autoComplete="new-password"
+            />
+
+            <button className="button primary" type="submit" disabled={loading}>
+              {loading ? '...' : t.authReset}
+            </button>
+          </form>
+        </article>
+
+        <article className="auth-panel auth-token-panel">
+          <div className="panel-title">
+            <h3>{session ? t.authToken : t.response}</h3>
+            {session && <span>{new Date(session.expiresAt).toLocaleString(locale)}</span>}
+          </div>
+          <pre className="auth-token">{JSON.stringify(result, null, 2)}</pre>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  autoFocus = false,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  autoComplete: string
+  autoFocus?: boolean
+}) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <label>
+      {label}
+      <span className="password-field">
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          type={visible ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          placeholder="**************"
+        />
+        <button
+          className={`password-toggle ${visible ? 'is-visible' : ''}`}
+          type="button"
+          aria-label={visible ? 'Ocultar senha' : 'Exibir senha'}
+          onClick={() => setVisible((current) => !current)}
+        >
+          <img src="/sharingan-password.png" alt="" aria-hidden="true" />
+        </button>
+      </span>
+    </label>
   )
 }
 
@@ -1116,6 +1550,7 @@ function InteractiveConsole({
       'Digite "api profile"  -> abre o JSON do perfil',
       'Digite "api projects" -> abre o JSON dos projetos',
       'Digite "lab"          -> abre o Integration Lab',
+      'Digite "auth"         -> abre o Auth Lab com JWT',
       'Digite "contact"      -> mostra GitHub e LinkedIn',
       'Digite "clear"        -> reinicia este console',
     ],
@@ -1270,6 +1705,11 @@ function InteractiveConsole({
       return { type: 'output', text: 'Abrindo Integration Lab...' }
     }
 
+    if (normalized === 'auth') {
+      setPage('auth')
+      return { type: 'output', text: 'Abrindo Auth Lab...' }
+    }
+
     if (['contact', 'contato'].includes(normalized)) {
       return [
         { type: 'output', text: data.profile.gitHubUrl },
@@ -1330,6 +1770,7 @@ function LabPage({
   setAnimeQuery,
   setWeatherState,
   runLab,
+  setPage,
 }: {
   t: typeof copy.pt
   cep: string
@@ -1342,6 +1783,7 @@ function LabPage({
   setAnimeQuery: (value: string) => void
   setWeatherState: (value: WeatherStateKey) => void
   runLab: (path: string) => void
+  setPage: (page: Page) => void
 }) {
   const selectedState = weatherStates[weatherState]
 
@@ -1413,6 +1855,24 @@ function LabPage({
             </button>
           </div>
           <code>GET /api/lab/weather</code>
+        </article>
+        <article className="lab-card auth-lab-card">
+          <span>05</span>
+          <h3>{t.authTitle}</h3>
+          <p>{t.authHint}</p>
+          <div className="lab-form single-action">
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => {
+                setPage('auth')
+                window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
+              }}
+            >
+              {t.authOpen}
+            </button>
+          </div>
+          <code>POST /api/auth/register · POST /api/auth/login · GET /api/auth/me</code>
         </article>
       </div>
 

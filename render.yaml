@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: caio-matheus-dev-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    region: virginia
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: AuthLab__Issuer
+        value: caio-matheus-dev
+      - key: AuthLab__Audience
+        value: portfolio-auth-lab
+      - key: AuthLab__Secret
+        generateValue: true
+      - key: AuthLab__FrontendBaseUrl
+        value: https://caio-matheus-dev-web.onrender.com
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Email__From
+        value: cmathxus@gmail.com
+      - key: Email__Username
+        value: cmathxus@gmail.com
+      - key: Email__Password
+        sync: false
+      - key: Email__SmtpHost
+        value: smtp.gmail.com
+      - key: Email__SmtpPort
+        value: 587
+      - key: Email__EnableSsl
+        value: true
+
+  - type: web
+    name: caio-matheus-dev-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://caio-matheus-dev-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

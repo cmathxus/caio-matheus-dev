@@ -12,5 +12,5 @@ RUN dotnet publish "CaioMatheusDev.Api.csproj" -c Release -o /app/publish /p:Use
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENV ASPNETCORE_URLS=http://+:8080
-ENTRYPOINT ["dotnet", "CaioMatheusDev.Api.dll"]
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} dotnet CaioMatheusDev.Api.dll"]

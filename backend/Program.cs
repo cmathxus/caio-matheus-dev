@@ -1,10 +1,18 @@
 using CaioMatheusDev.Api.Application.Interfaces;
+using CaioMatheusDev.Api.Application.Options;
 using CaioMatheusDev.Api.Application.Services;
+using CaioMatheusDev.Api.Infrastructure.Auth;
+using CaioMatheusDev.Api.Infrastructure.Email;
 using CaioMatheusDev.Api.Infrastructure.GitHub;
 using CaioMatheusDev.Api.Infrastructure.Http;
+using CaioMatheusDev.Api.Infrastructure.Persistence;
 using CaioMatheusDev.Api.Infrastructure.Workers;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+var defaultConnection = NormalizePostgresConnectionString(
+    builder.Configuration.GetConnectionString("DefaultConnection"));
 
 builder.Services.AddCors(options =>
 {
@@ -17,6 +25,22 @@ builder.Services.AddCors(options =>
 builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.Configure<AuthLabOptions>(builder.Configuration.GetSection("AuthLab"));
+builder.Services.Configure<AuthFlowOptions>(builder.Configuration.GetSection("AuthLab"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+
+if (!string.IsNullOrWhiteSpace(defaultConnection))
+{
+    builder.Services.AddDbContext<PortfolioDbContext>(options =>
+        options.UseNpgsql(defaultConnection));
+    builder.Services.AddScoped<IAuthUserStore, PostgresAuthUserStore>();
+    builder.Services.AddScoped<IPasswordResetTokenStore, PostgresPasswordResetTokenStore>();
+}
+else
+{
+    builder.Services.AddSingleton<IAuthUserStore, InMemoryAuthUserStore>();
+    builder.Services.AddSingleton<IPasswordResetTokenStore, InMemoryPasswordResetTokenStore>();
+}
 
 builder.Services.AddHttpClient("github", client =>
 {
@@ -35,11 +59,21 @@ builder.Services.AddSingleton<IGitHubService, GitHubService>();
 builder.Services.AddSingleton<IStatusCheckService, StatusCheckService>();
 builder.Services.AddSingleton<IAddressLookupService, AddressLookupService>();
 builder.Services.AddSingleton<IIntegrationLabService, IntegrationLabService>();
+builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IAuthLabService, AuthLabService>();
 builder.Services.AddHostedService<PortfolioRefreshWorker>();
 
 var app = builder.Build();
 
 app.UseCors();
+
+if (!string.IsNullOrWhiteSpace(defaultConnection))
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<PortfolioDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -50,3 +84,37 @@ app.MapGet("/", () => Results.Redirect("/openapi/v1.json"));
 app.MapControllers();
 
 app.Run();
+
+static string? NormalizePostgresConnectionString(string? connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return null;
+    }
+
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) ||
+        (uri.Scheme is not "postgres" and not "postgresql"))
+    {
+        return connectionString;
+    }
+
+    var credentials = uri.UserInfo.Split(':', 2);
+    var username = credentials.Length > 0 ? Uri.UnescapeDataString(credentials[0]) : string.Empty;
+    var password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty;
+    var database = uri.AbsolutePath.TrimStart('/');
+    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+    var sslMode = query["sslmode"] ?? query["sslMode"] ?? "Require";
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = database,
+        Username = username,
+        Password = password,
+        SslMode = Enum.TryParse<SslMode>(sslMode, true, out var parsedSslMode)
+            ? parsedSslMode
+            : SslMode.Require
+    };
+
+    return builder.ConnectionString;
+}

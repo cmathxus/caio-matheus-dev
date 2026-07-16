@@ -233,20 +233,72 @@ nav button.active:hover {
 }
 
 .segmented-control {
+  position: relative;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-muted);
+  isolation: isolate;
 }
 
 .segmented-control button {
+  position: relative;
+  z-index: 1;
   min-width: 36px;
   padding: 0 8px;
 }
 
-.segmented-control .active,
+.language-switch {
+  overflow: hidden;
+}
+
+.language-switch-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: 0;
+  width: calc(50% - 4px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--fg) 8%, transparent);
+  pointer-events: none;
+  transition:
+    transform 320ms var(--ease),
+    background-color 220ms var(--ease),
+    border-color 220ms var(--ease),
+    box-shadow 220ms var(--ease);
+}
+
+.language-switch.is-en .language-switch-indicator {
+  transform: translateX(calc(100% + 2px));
+}
+
+.language-switch button {
+  transform: translateY(0);
+}
+
+.language-switch button.active {
+  color: var(--fg);
+}
+
+.language-switch button:not(.active) {
+  color: var(--muted);
+}
+
+.language-switch button:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg);
+}
+
+.language-switch button:active {
+  transform: translateY(1px);
+}
+
 .theme-toggle {
   border-color: var(--border);
   background: var(--surface);

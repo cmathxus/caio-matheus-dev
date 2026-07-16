@@ -805,7 +805,11 @@ function App() {
         </nav>
 
         <div className="toolbar" aria-label="Preferences">
-          <div className="segmented-control" aria-label="Language selector">
+          <div
+            className={`segmented-control language-switch ${language === 'en' ? 'is-en' : 'is-pt'}`}
+            aria-label="Language selector"
+          >
+            <span className="language-switch-indicator" aria-hidden="true" />
             <button className={language === 'pt' ? 'active' : ''} type="button" onClick={() => setLanguage('pt')}>
               PT
             </button>

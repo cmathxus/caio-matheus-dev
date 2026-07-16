@@ -13,6 +13,10 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
 
     public DbSet<BackendRoomDrawingEntity> BackendRoomDrawings => Set<BackendRoomDrawingEntity>();
 
+    public DbSet<BackendRoomCommunityPostEntity> BackendRoomCommunityPosts => Set<BackendRoomCommunityPostEntity>();
+
+    public DbSet<BackendRoomCommunityPostLikeEntity> BackendRoomCommunityPostLikes => Set<BackendRoomCommunityPostLikeEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AuthUserEntity>(builder =>
@@ -68,6 +72,40 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
             builder.HasOne(drawing => drawing.User)
                 .WithOne(user => user.BackendRoomDrawing)
                 .HasForeignKey<BackendRoomDrawingEntity>(drawing => drawing.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BackendRoomCommunityPostEntity>(builder =>
+        {
+            builder.ToTable("backend_room_community_posts");
+            builder.HasKey(post => post.Id);
+            builder.Property(post => post.AuthorName).HasMaxLength(120).IsRequired();
+            builder.Property(post => post.Caption).HasMaxLength(160).IsRequired();
+            builder.Property(post => post.DataUrl).IsRequired();
+            builder.Property(post => post.CreatedAt).IsRequired();
+            builder.Property(post => post.ExpiresAt).IsRequired();
+            builder.HasIndex(post => post.CreatedAt);
+            builder.HasIndex(post => post.ExpiresAt);
+            builder.HasIndex(post => new { post.UserId, post.CreatedAt });
+            builder.HasOne(post => post.User)
+                .WithMany(user => user.BackendRoomCommunityPosts)
+                .HasForeignKey(post => post.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BackendRoomCommunityPostLikeEntity>(builder =>
+        {
+            builder.ToTable("backend_room_community_post_likes");
+            builder.HasKey(like => new { like.PostId, like.UserId });
+            builder.Property(like => like.CreatedAt).IsRequired();
+            builder.HasIndex(like => like.UserId);
+            builder.HasOne(like => like.Post)
+                .WithMany(post => post.Likes)
+                .HasForeignKey(like => like.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(like => like.User)
+                .WithMany(user => user.BackendRoomCommunityPostLikes)
+                .HasForeignKey(like => like.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

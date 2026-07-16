@@ -13,6 +13,9 @@ public sealed class BackendRoomService(
     private const int NoteMaxLength = 1_200;
     private const int DrawingNameMaxLength = 80;
     private const int DrawingDataUrlMaxLength = 1_500_000;
+    private const int CommunityCaptionMaxLength = 160;
+    private const int CommunityFeedSize = 24;
+    private static readonly TimeSpan CommunityPostLifetime = TimeSpan.FromHours(24);
 
     public async Task<Result<BackendRoomSnapshot>> GetRoomAsync(
         string authorizationHeader,
@@ -28,10 +31,12 @@ public sealed class BackendRoomService(
         var user = userResult.Value!;
         var notes = await backendRoomStore.GetNotesAsync(user.Id, cancellationToken);
         var drawing = await backendRoomStore.GetDrawingAsync(user.Id, cancellationToken);
+        var communityPosts = await backendRoomStore.GetCommunityPostsAsync(user.Id, CommunityFeedSize, DateTimeOffset.UtcNow, cancellationToken);
         var snapshot = new BackendRoomSnapshot(
             new AuthUserProfile(user.Id, user.Name, user.Email, user.CreatedAt),
             notes,
             drawing,
+            communityPosts,
             DateTimeOffset.UtcNow);
 
         return Result<BackendRoomSnapshot>.Ok(snapshot);
@@ -139,15 +144,11 @@ public sealed class BackendRoomService(
             return Result<BackendRoomDrawing>.Fail("invalid_drawing_name", $"Drawing name must have at most {DrawingNameMaxLength} characters.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.DataUrl) ||
-            !request.DataUrl.StartsWith("data:image/png;base64,", StringComparison.OrdinalIgnoreCase))
-        {
-            return Result<BackendRoomDrawing>.Fail("invalid_drawing", "Send the canvas as a PNG data URL.");
-        }
+        var drawingResult = ValidateDrawingDataUrl(request.DataUrl);
 
-        if (request.DataUrl.Length > DrawingDataUrlMaxLength)
+        if (!drawingResult.IsSuccess)
         {
-            return Result<BackendRoomDrawing>.Fail("drawing_too_large", "Drawing is too large for this demo.");
+            return Result<BackendRoomDrawing>.Fail(drawingResult.Error!.Code, drawingResult.Error.Message);
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -161,6 +162,111 @@ public sealed class BackendRoomService(
             now);
 
         return Result<BackendRoomDrawing>.Ok(await backendRoomStore.SaveDrawingAsync(drawing, cancellationToken));
+    }
+
+    public async Task<Result<IReadOnlyCollection<BackendRoomCommunityPost>>> GetCommunityPostsAsync(
+        string authorizationHeader,
+        CancellationToken cancellationToken = default)
+    {
+        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result<IReadOnlyCollection<BackendRoomCommunityPost>>.Fail(userResult.Error!.Code, userResult.Error.Message);
+        }
+
+        return Result<IReadOnlyCollection<BackendRoomCommunityPost>>.Ok(
+            await backendRoomStore.GetCommunityPostsAsync(userResult.Value!.Id, CommunityFeedSize, DateTimeOffset.UtcNow, cancellationToken));
+    }
+
+    public async Task<Result<BackendRoomCommunityPost>> ShareDrawingAsync(
+        string authorizationHeader,
+        ShareBackendRoomDrawingRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result<BackendRoomCommunityPost>.Fail(userResult.Error!.Code, userResult.Error.Message);
+        }
+
+        var drawingResult = ValidateDrawingDataUrl(request.DataUrl);
+
+        if (!drawingResult.IsSuccess)
+        {
+            return Result<BackendRoomCommunityPost>.Fail(drawingResult.Error!.Code, drawingResult.Error.Message);
+        }
+
+        var caption = (request.Caption ?? string.Empty).Trim();
+
+        if (caption.Length > CommunityCaptionMaxLength)
+        {
+            return Result<BackendRoomCommunityPost>.Fail(
+                "caption_too_long",
+                $"Caption must have at most {CommunityCaptionMaxLength} characters.");
+        }
+
+        var user = userResult.Value!;
+        var now = DateTimeOffset.UtcNow;
+        var post = new BackendRoomCommunityPost(
+            Guid.NewGuid(),
+            user.Id,
+            user.Name,
+            caption,
+            request.DataUrl,
+            now,
+            now.Add(CommunityPostLifetime),
+            0,
+            false);
+
+        return Result<BackendRoomCommunityPost>.Ok(await backendRoomStore.AddCommunityPostAsync(post, cancellationToken));
+    }
+
+    public async Task<Result<BackendRoomLikeResult>> ToggleCommunityPostLikeAsync(
+        string authorizationHeader,
+        Guid postId,
+        CancellationToken cancellationToken = default)
+    {
+        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result<BackendRoomLikeResult>.Fail(userResult.Error!.Code, userResult.Error.Message);
+        }
+
+        var likeResult = await backendRoomStore.ToggleCommunityPostLikeAsync(
+            userResult.Value!.Id,
+            postId,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+
+        return likeResult is null
+            ? Result<BackendRoomLikeResult>.Fail("community_post_not_found", "This drawing is no longer available.")
+            : Result<BackendRoomLikeResult>.Ok(likeResult);
+    }
+
+    public async Task<Result<BackendRoomActionResult>> DeleteCommunityPostAsync(
+        string authorizationHeader,
+        Guid postId,
+        CancellationToken cancellationToken = default)
+    {
+        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+
+        if (!userResult.IsSuccess)
+        {
+            return Result<BackendRoomActionResult>.Fail(userResult.Error!.Code, userResult.Error.Message);
+        }
+
+        var deleted = await backendRoomStore.DeleteCommunityPostAsync(
+            userResult.Value!.Id,
+            postId,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+
+        return deleted
+            ? Result<BackendRoomActionResult>.Ok(new BackendRoomActionResult("Community post deleted."))
+            : Result<BackendRoomActionResult>.Fail("community_post_not_found", "Community post not found in this Backend Room.");
     }
 
     private async Task<Result<AuthUser>> GetAuthorizedUserAsync(
@@ -197,5 +303,21 @@ public sealed class BackendRoomService(
         }
 
         return Result<string>.Ok(normalized);
+    }
+
+    private static Result<string> ValidateDrawingDataUrl(string dataUrl)
+    {
+        if (string.IsNullOrWhiteSpace(dataUrl) ||
+            !dataUrl.StartsWith("data:image/png;base64,", StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<string>.Fail("invalid_drawing", "Send the canvas as a PNG data URL.");
+        }
+
+        if (dataUrl.Length > DrawingDataUrlMaxLength)
+        {
+            return Result<string>.Fail("drawing_too_large", "Drawing is too large for this demo.");
+        }
+
+        return Result<string>.Ok(dataUrl);
     }
 }

@@ -155,15 +155,34 @@ type BackendRoomDrawing = {
   updatedAt: string
 }
 
+type BackendRoomCommunityPost = {
+  id: string
+  userId: string
+  authorName: string
+  caption: string
+  dataUrl: string
+  createdAt: string
+  expiresAt: string
+  likesCount: number
+  likedByCurrentUser: boolean
+}
+
 type BackendRoomSnapshot = {
   user: AuthUserProfile
   notes: BackendRoomNote[]
   drawing: BackendRoomDrawing | null
+  communityPosts: BackendRoomCommunityPost[]
   loadedAt: string
 }
 
 type BackendRoomActionResult = {
   message: string
+}
+
+type BackendRoomLikeResult = {
+  postId: string
+  likesCount: number
+  likedByCurrentUser: boolean
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5089'
@@ -1255,6 +1274,7 @@ function BackendRoom({
   const [room, setRoom] = useState<BackendRoomSnapshot | null>(null)
   const [noteContent, setNoteContent] = useState('')
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [communityCaption, setCommunityCaption] = useState('')
   const [roomResult, setRoomResult] = useState<unknown>({ loading: true })
   const [loading, setLoading] = useState(false)
   const [drawingStatus, setDrawingStatus] = useState(language === 'pt' ? 'Canvas pronto.' : 'Canvas ready.')
@@ -1306,6 +1326,7 @@ function BackendRoom({
         loadedAt: result.loadedAt,
         notes: result.notes.length,
         drawingSaved: Boolean(result.drawing),
+        communityPosts: result.communityPosts.length,
       })
     } catch (error) {
       setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
@@ -1474,6 +1495,130 @@ function BackendRoom({
     }
   }
 
+  async function shareDrawing(event: FormEvent) {
+    event.preventDefault()
+
+    const canvas = canvasRef.current
+
+    if (!canvas) return
+
+    setLoading(true)
+    setDrawingStatus(language === 'pt' ? 'Publicando no feed...' : 'Publishing to feed...')
+
+    try {
+      const post = await sendProtectedApi<BackendRoomCommunityPost>(
+        '/api/backend-room/community',
+        session.accessToken,
+        'POST',
+        {
+          caption: communityCaption,
+          dataUrl: canvas.toDataURL('image/png'),
+        },
+      )
+      setRoom((current) =>
+        current && {
+          ...current,
+          communityPosts: [post, ...current.communityPosts].slice(0, 24),
+        },
+      )
+      setCommunityCaption('')
+      setRoomResult({ success: true, action: 'community.post.created', post: { ...post, dataUrl: '[canvas png]' } })
+      setDrawingStatus(language === 'pt' ? 'Publicado no feed da comunidade.' : 'Published to the community feed.')
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+      setDrawingStatus(language === 'pt' ? 'Falha ao publicar no feed.' : 'Failed to publish to feed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function getCommunityPostExpiry(post: BackendRoomCommunityPost) {
+    const diffInMs = new Date(post.expiresAt).getTime() - Date.now()
+    const hoursLeft = Math.max(0, Math.ceil(diffInMs / 3_600_000))
+
+    if (hoursLeft <= 0) {
+      return language === 'pt' ? 'expirando agora' : 'expiring now'
+    }
+
+    if (hoursLeft === 1) {
+      return language === 'pt' ? 'expira em 1h' : 'expires in 1h'
+    }
+
+    return language === 'pt' ? `expira em ${hoursLeft}h` : `expires in ${hoursLeft}h`
+  }
+
+  function isOwnCommunityPost(post: BackendRoomCommunityPost) {
+    return post.userId.toLowerCase() === session.user.id.toLowerCase()
+  }
+
+  async function toggleCommunityLike(post: BackendRoomCommunityPost) {
+    setLoading(true)
+
+    try {
+      const like = await sendProtectedApi<BackendRoomLikeResult>(
+        `/api/backend-room/community/${post.id}/like`,
+        session.accessToken,
+        'POST',
+      )
+
+      setRoom((current) =>
+        current && {
+          ...current,
+          communityPosts: current.communityPosts.map((item) =>
+            item.id === like.postId
+              ? {
+                  ...item,
+                  likesCount: like.likesCount,
+                  likedByCurrentUser: like.likedByCurrentUser,
+                }
+              : item,
+          ),
+        },
+      )
+      setRoomResult({
+        success: true,
+        action: like.likedByCurrentUser ? 'community.post.liked' : 'community.post.unliked',
+        postId: like.postId,
+        likesCount: like.likesCount,
+      })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+      void loadRoom()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteCommunityPost(post: BackendRoomCommunityPost) {
+    setLoading(true)
+
+    try {
+      const result = await sendProtectedApi<BackendRoomActionResult>(
+        `/api/backend-room/community/${post.id}`,
+        session.accessToken,
+        'DELETE',
+      )
+
+      setRoom((current) =>
+        current && {
+          ...current,
+          communityPosts: current.communityPosts.filter((item) => item.id !== post.id),
+        },
+      )
+      setRoomResult({
+        success: true,
+        action: 'community.post.deleted',
+        postId: post.id,
+        result,
+      })
+    } catch (error) {
+      setRoomResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+      void loadRoom()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <section className="lab-page backend-room-page">
       <div className="backend-room-shell">
@@ -1604,8 +1749,86 @@ function BackendRoom({
               {language === 'pt' ? 'Salvar canvas' : 'Save canvas'}
             </button>
           </div>
+
+          <form className="community-composer" onSubmit={shareDrawing}>
+            <input
+              value={communityCaption}
+              onChange={(event) => setCommunityCaption(event.target.value)}
+              maxLength={160}
+              placeholder={language === 'pt' ? 'Legenda opcional para o feed...' : 'Optional feed caption...'}
+            />
+            <button className="button primary" type="submit" disabled={loading}>
+              {language === 'pt' ? 'Publicar no feed' : 'Share to feed'}
+            </button>
+          </form>
         </article>
         </div>
+
+        <article className="backend-room-panel community-panel">
+          <div className="panel-title">
+            <h3>{language === 'pt' ? 'Feed da comunidade' : 'Community feed'}</h3>
+            <span>POST /community</span>
+          </div>
+
+          <div className="community-feed">
+            {room?.communityPosts.length ? (
+              room.communityPosts.map((post) => (
+                <article className="community-post" key={post.id}>
+                  <img src={post.dataUrl} alt={post.caption || `Canvas by ${post.authorName}`} />
+                  <div className="community-post-meta">
+                    <div>
+                      <strong>{post.authorName}</strong>
+                      <span>{new Date(post.createdAt).toLocaleString(locale)}</span>
+                    </div>
+                    <div className="community-post-actions">
+                      <button
+                        className={`heart-button ${post.likedByCurrentUser ? 'is-liked' : ''}`}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => toggleCommunityLike(post)}
+                        aria-label={
+                          post.likedByCurrentUser
+                            ? language === 'pt'
+                              ? 'Remover curtida'
+                              : 'Remove like'
+                            : language === 'pt'
+                              ? 'Curtir desenho'
+                              : 'Like drawing'
+                        }
+                      >
+                        <span aria-hidden="true">♥</span>
+                        {post.likesCount}
+                      </button>
+                      {isOwnCommunityPost(post) && (
+                        <button
+                          className="community-delete-button"
+                          type="button"
+                          disabled={loading}
+                          onClick={() => deleteCommunityPost(post)}
+                        >
+                          {language === 'pt' ? 'Excluir' : 'Delete'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <span className="community-expiry">{getCommunityPostExpiry(post)}</span>
+                  <p>
+                    {post.caption ||
+                      (language === 'pt'
+                        ? 'Sem legenda, só energia de canvas.'
+                        : 'No caption, just canvas energy.')}
+                  </p>
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">
+                {language === 'pt'
+                  ? 'Nenhum desenho publicado ainda. Seja o primeiro a sujar esse feed.'
+                  : 'No shared drawings yet. Be the first to mess up this feed.'}
+              </p>
+            )}
+          </div>
+        </article>
 
         <details className="backend-room-panel room-json-panel">
           <summary>

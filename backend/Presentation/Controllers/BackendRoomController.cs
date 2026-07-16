@@ -63,6 +63,49 @@ public sealed class BackendRoomController(IBackendRoomService backendRoomService
         return FromResult(result, ResolveFailureStatus(result.Error));
     }
 
+    [HttpGet("community")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<BackendRoomCommunityPost>>>> GetCommunityPosts(
+        [FromHeader(Name = "Authorization")] string? authorization,
+        CancellationToken cancellationToken)
+    {
+        var result = await backendRoomService.GetCommunityPostsAsync(authorization ?? string.Empty, cancellationToken);
+
+        return FromResult(result, ResolveFailureStatus(result.Error));
+    }
+
+    [HttpPost("community")]
+    public async Task<ActionResult<ApiResponse<BackendRoomCommunityPost>>> ShareDrawing(
+        [FromHeader(Name = "Authorization")] string? authorization,
+        ShareBackendRoomDrawingRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await backendRoomService.ShareDrawingAsync(authorization ?? string.Empty, request, cancellationToken);
+
+        return FromResult(result, ResolveFailureStatus(result.Error));
+    }
+
+    [HttpPost("community/{postId:guid}/like")]
+    public async Task<ActionResult<ApiResponse<BackendRoomLikeResult>>> ToggleCommunityPostLike(
+        [FromHeader(Name = "Authorization")] string? authorization,
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        var result = await backendRoomService.ToggleCommunityPostLikeAsync(authorization ?? string.Empty, postId, cancellationToken);
+
+        return FromResult(result, ResolveFailureStatus(result.Error));
+    }
+
+    [HttpDelete("community/{postId:guid}")]
+    public async Task<ActionResult<ApiResponse<BackendRoomActionResult>>> DeleteCommunityPost(
+        [FromHeader(Name = "Authorization")] string? authorization,
+        Guid postId,
+        CancellationToken cancellationToken)
+    {
+        var result = await backendRoomService.DeleteCommunityPostAsync(authorization ?? string.Empty, postId, cancellationToken);
+
+        return FromResult(result, ResolveFailureStatus(result.Error));
+    }
+
     private static int ResolveFailureStatus(ApiError? error) =>
         error?.Code switch
         {
@@ -73,7 +116,7 @@ public sealed class BackendRoomController(IBackendRoomService backendRoomService
                 "invalid_payload" or
                 "invalid_token_context" or
                 "user_not_found" => StatusCodes.Status401Unauthorized,
-            "note_not_found" => StatusCodes.Status404NotFound,
+            "note_not_found" or "community_post_not_found" => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status400BadRequest
         };
 }

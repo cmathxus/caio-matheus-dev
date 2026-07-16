@@ -1995,6 +1995,201 @@ p {
   margin-right: auto;
 }
 
+.community-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.community-composer input {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0 11px;
+}
+
+.community-composer input::placeholder {
+  color: var(--muted);
+  opacity: 0.72;
+}
+
+.community-panel {
+  display: grid;
+}
+
+.community-feed {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.community-post {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.community-post img {
+  width: 100%;
+  aspect-ratio: 1.65 / 1;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.community-post-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.community-post-meta > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.community-post-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.community-post strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.community-post-meta span,
+.community-expiry {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.community-expiry {
+  display: inline-flex;
+  width: fit-content;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+  text-transform: lowercase;
+}
+
+.heart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 54px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.heart-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--fg);
+}
+
+.heart-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.heart-button span {
+  color: currentColor;
+  font-size: 0.95rem;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.heart-button.is-liked {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.heart-button.is-liked span {
+  animation: heart-pop 260ms ease;
+}
+
+.community-delete-button {
+  min-height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.community-delete-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.community-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+@keyframes heart-pop {
+  0% {
+    transform: translateY(-1px) scale(0.82);
+  }
+
+  60% {
+    transform: translateY(-1px) scale(1.2);
+  }
+
+  100% {
+    transform: translateY(-1px) scale(1);
+  }
+}
+
+.community-post p {
+  display: -webkit-box;
+  overflow: hidden;
+  min-height: 2.8em;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .room-json-panel pre {
   max-height: 240px;
 }
@@ -2385,6 +2580,10 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .community-feed {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .auth-lab-card {
     grid-template-columns: 1fr;
   }
@@ -2476,5 +2675,10 @@ pre {
 
   .lab-form .record-field {
     flex: 1;
+  }
+
+  .community-composer,
+  .community-feed {
+    grid-template-columns: 1fr;
   }
 }

@@ -104,6 +104,122 @@ public sealed class PostgresBackendRoomStore(PortfolioDbContext dbContext) : IBa
 
         return drawing;
     }
+
+    public async Task<IReadOnlyCollection<BackendRoomCommunityPost>> GetCommunityPostsAsync(
+        Guid currentUserId,
+        int take,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await DeleteExpiredCommunityPostsAsync(now, cancellationToken);
+
+        var posts = await dbContext.BackendRoomCommunityPosts
+            .AsNoTracking()
+            .Where(post => post.ExpiresAt > now)
+            .OrderByDescending(post => post.CreatedAt)
+            .Take(take)
+            .Select(post => new BackendRoomCommunityPost(
+                post.Id,
+                post.UserId,
+                post.AuthorName,
+                post.Caption,
+                post.DataUrl,
+                post.CreatedAt,
+                post.ExpiresAt,
+                post.Likes.Count,
+                post.Likes.Any(like => like.UserId == currentUserId)))
+            .ToListAsync(cancellationToken);
+
+        return posts;
+    }
+
+    public async Task<BackendRoomCommunityPost> AddCommunityPostAsync(
+        BackendRoomCommunityPost post,
+        CancellationToken cancellationToken = default)
+    {
+        dbContext.BackendRoomCommunityPosts.Add(post.ToEntity());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return post;
+    }
+
+    public async Task<BackendRoomLikeResult?> ToggleCommunityPostLikeAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await DeleteExpiredCommunityPostsAsync(now, cancellationToken);
+
+        var postExists = await dbContext.BackendRoomCommunityPosts
+            .AnyAsync(post => post.Id == postId && post.ExpiresAt > now, cancellationToken);
+
+        if (!postExists)
+        {
+            return null;
+        }
+
+        var currentLike = await dbContext.BackendRoomCommunityPostLikes
+            .FirstOrDefaultAsync(like => like.PostId == postId && like.UserId == currentUserId, cancellationToken);
+
+        var liked = currentLike is null;
+
+        if (currentLike is null)
+        {
+            dbContext.BackendRoomCommunityPostLikes.Add(new BackendRoomCommunityPostLikeEntity
+            {
+                PostId = postId,
+                UserId = currentUserId,
+                CreatedAt = now
+            });
+        }
+        else
+        {
+            dbContext.BackendRoomCommunityPostLikes.Remove(currentLike);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var likesCount = await dbContext.BackendRoomCommunityPostLikes
+            .CountAsync(like => like.PostId == postId, cancellationToken);
+
+        return new BackendRoomLikeResult(postId, likesCount, liked);
+    }
+
+    public async Task<bool> DeleteCommunityPostAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await DeleteExpiredCommunityPostsAsync(now, cancellationToken);
+
+        var entity = await dbContext.BackendRoomCommunityPosts
+            .FirstOrDefaultAsync(
+                post => post.Id == postId &&
+                    post.UserId == currentUserId &&
+                    post.ExpiresAt > now,
+                cancellationToken);
+
+        if (entity is null)
+        {
+            return false;
+        }
+
+        dbContext.BackendRoomCommunityPosts.Remove(entity);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
+    }
+
+    private async Task DeleteExpiredCommunityPostsAsync(
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await dbContext.BackendRoomCommunityPosts
+            .Where(post => post.ExpiresAt <= now)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
 }
 
 file static class BackendRoomEntityMapper
@@ -133,5 +249,29 @@ file static class BackendRoomEntityMapper
             DataUrl = drawing.DataUrl,
             CreatedAt = drawing.CreatedAt,
             UpdatedAt = drawing.UpdatedAt
+        };
+
+    public static BackendRoomCommunityPost ToDomain(this BackendRoomCommunityPostEntity entity) =>
+        new(
+            entity.Id,
+            entity.UserId,
+            entity.AuthorName,
+            entity.Caption,
+            entity.DataUrl,
+            entity.CreatedAt,
+            entity.ExpiresAt,
+            entity.Likes.Count,
+            false);
+
+    public static BackendRoomCommunityPostEntity ToEntity(this BackendRoomCommunityPost post) =>
+        new()
+        {
+            Id = post.Id,
+            UserId = post.UserId,
+            AuthorName = post.AuthorName,
+            Caption = post.Caption,
+            DataUrl = post.DataUrl,
+            CreatedAt = post.CreatedAt,
+            ExpiresAt = post.ExpiresAt
         };
 }

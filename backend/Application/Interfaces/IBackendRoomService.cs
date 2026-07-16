@@ -29,4 +29,23 @@ public interface IBackendRoomService
         string authorizationHeader,
         SaveBackendRoomDrawingRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyCollection<BackendRoomCommunityPost>>> GetCommunityPostsAsync(
+        string authorizationHeader,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<BackendRoomCommunityPost>> ShareDrawingAsync(
+        string authorizationHeader,
+        ShareBackendRoomDrawingRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<BackendRoomLikeResult>> ToggleCommunityPostLikeAsync(
+        string authorizationHeader,
+        Guid postId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<BackendRoomActionResult>> DeleteCommunityPostAsync(
+        string authorizationHeader,
+        Guid postId,
+        CancellationToken cancellationToken = default);
 }

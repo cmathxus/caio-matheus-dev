@@ -3,6 +3,7 @@ using System;
 using CaioMatheusDev.Api.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PortfolioDbContext))]
-    partial class PortfolioDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260716203106_AddBackendRoomCommunity")]
+    partial class AddBackendRoomCommunity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,9 +85,6 @@ namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -92,29 +92,9 @@ namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CreatedAt");
 
-                    b.HasIndex("ExpiresAt");
-
                     b.HasIndex("UserId", "CreatedAt");
 
                     b.ToTable("backend_room_community_posts", (string)null);
-                });
-
-            modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomCommunityPostLikeEntity", b =>
-                {
-                    b.Property<Guid>("PostId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("PostId", "UserId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("backend_room_community_post_likes", (string)null);
                 });
 
             modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomDrawingEntity", b =>
@@ -220,25 +200,6 @@ namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomCommunityPostLikeEntity", b =>
-                {
-                    b.HasOne("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomCommunityPostEntity", "Post")
-                        .WithMany("Likes")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.AuthUserEntity", "User")
-                        .WithMany("BackendRoomCommunityPostLikes")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Post");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomDrawingEntity", b =>
                 {
                     b.HasOne("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.AuthUserEntity", "User")
@@ -274,8 +235,6 @@ namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.AuthUserEntity", b =>
                 {
-                    b.Navigation("BackendRoomCommunityPostLikes");
-
                     b.Navigation("BackendRoomCommunityPosts");
 
                     b.Navigation("BackendRoomDrawing");
@@ -283,11 +242,6 @@ namespace CaioMatheusDev.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("BackendRoomNotes");
 
                     b.Navigation("PasswordResetTokens");
-                });
-
-            modelBuilder.Entity("CaioMatheusDev.Api.Infrastructure.Persistence.Entities.BackendRoomCommunityPostEntity", b =>
-                {
-                    b.Navigation("Likes");
                 });
 #pragma warning restore 612, 618
         }

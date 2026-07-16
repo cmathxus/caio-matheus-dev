@@ -31,4 +31,26 @@ public interface IBackendRoomStore
     Task<BackendRoomDrawing> SaveDrawingAsync(
         BackendRoomDrawing drawing,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<BackendRoomCommunityPost>> GetCommunityPostsAsync(
+        Guid currentUserId,
+        int take,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
+
+    Task<BackendRoomCommunityPost> AddCommunityPostAsync(
+        BackendRoomCommunityPost post,
+        CancellationToken cancellationToken = default);
+
+    Task<BackendRoomLikeResult?> ToggleCommunityPostLikeAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> DeleteCommunityPostAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
 }

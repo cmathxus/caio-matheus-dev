@@ -19,5 +19,9 @@ public sealed class AuthUserEntity
     public ICollection<BackendRoomNoteEntity> BackendRoomNotes { get; set; } = [];
 
     public BackendRoomDrawingEntity? BackendRoomDrawing { get; set; }
+
+    public ICollection<BackendRoomCommunityPostEntity> BackendRoomCommunityPosts { get; set; } = [];
+
+    public ICollection<BackendRoomCommunityPostLikeEntity> BackendRoomCommunityPostLikes { get; set; } = [];
 }
 

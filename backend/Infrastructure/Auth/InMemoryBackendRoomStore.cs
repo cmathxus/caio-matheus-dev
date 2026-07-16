@@ -8,6 +8,8 @@ public sealed class InMemoryBackendRoomStore : IBackendRoomStore
 {
     private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<Guid, BackendRoomNote>> notesByUserId = new();
     private readonly ConcurrentDictionary<Guid, BackendRoomDrawing> drawingsByUserId = new();
+    private readonly ConcurrentDictionary<Guid, BackendRoomCommunityPost> communityPosts = new();
+    private readonly ConcurrentDictionary<CommunityLikeKey, DateTimeOffset> communityLikes = new();
 
     public Task<IReadOnlyCollection<BackendRoomNote>> GetNotesAsync(
         Guid userId,
@@ -72,4 +74,112 @@ public sealed class InMemoryBackendRoomStore : IBackendRoomStore
 
         return Task.FromResult(drawing);
     }
+
+    public Task<IReadOnlyCollection<BackendRoomCommunityPost>> GetCommunityPostsAsync(
+        Guid currentUserId,
+        int take,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        DeleteExpiredCommunityPosts(now);
+
+        return Task.FromResult<IReadOnlyCollection<BackendRoomCommunityPost>>(
+            communityPosts.Values
+                .Where(post => post.ExpiresAt > now)
+                .OrderByDescending(post => post.CreatedAt)
+                .Take(take)
+                .Select(post => HydrateCommunityPost(post, currentUserId))
+                .ToList());
+    }
+
+    public Task<BackendRoomCommunityPost> AddCommunityPostAsync(
+        BackendRoomCommunityPost post,
+        CancellationToken cancellationToken = default)
+    {
+        communityPosts[post.Id] = post;
+
+        return Task.FromResult(post);
+    }
+
+    public Task<BackendRoomLikeResult?> ToggleCommunityPostLikeAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        DeleteExpiredCommunityPosts(now);
+
+        if (!communityPosts.TryGetValue(postId, out var post) || post.ExpiresAt <= now)
+        {
+            return Task.FromResult<BackendRoomLikeResult?>(null);
+        }
+
+        var key = new CommunityLikeKey(postId, currentUserId);
+        var liked = !communityLikes.TryRemove(key, out _);
+
+        if (liked)
+        {
+            communityLikes[key] = now;
+        }
+
+        var likesCount = communityLikes.Keys.Count(like => like.PostId == postId);
+
+        return Task.FromResult<BackendRoomLikeResult?>(new BackendRoomLikeResult(postId, likesCount, liked));
+    }
+
+    public Task<bool> DeleteCommunityPostAsync(
+        Guid currentUserId,
+        Guid postId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        DeleteExpiredCommunityPosts(now);
+
+        if (!communityPosts.TryGetValue(postId, out var post) || post.UserId != currentUserId || post.ExpiresAt <= now)
+        {
+            return Task.FromResult(false);
+        }
+
+        var deleted = communityPosts.TryRemove(postId, out _);
+
+        if (deleted)
+        {
+            foreach (var key in communityLikes.Keys.Where(like => like.PostId == postId).ToList())
+            {
+                communityLikes.TryRemove(key, out _);
+            }
+        }
+
+        return Task.FromResult(deleted);
+    }
+
+    private BackendRoomCommunityPost HydrateCommunityPost(
+        BackendRoomCommunityPost post,
+        Guid currentUserId)
+    {
+        var likesCount = communityLikes.Keys.Count(like => like.PostId == post.Id);
+        var likedByCurrentUser = communityLikes.ContainsKey(new CommunityLikeKey(post.Id, currentUserId));
+
+        return post with { LikesCount = likesCount, LikedByCurrentUser = likedByCurrentUser };
+    }
+
+    private void DeleteExpiredCommunityPosts(DateTimeOffset now)
+    {
+        var expiredPostIds = communityPosts.Values
+            .Where(post => post.ExpiresAt <= now)
+            .Select(post => post.Id)
+            .ToHashSet();
+
+        foreach (var postId in expiredPostIds)
+        {
+            communityPosts.TryRemove(postId, out _);
+        }
+
+        foreach (var key in communityLikes.Keys.Where(like => expiredPostIds.Contains(like.PostId)).ToList())
+        {
+            communityLikes.TryRemove(key, out _);
+        }
+    }
+
+    private readonly record struct CommunityLikeKey(Guid PostId, Guid UserId);
 }

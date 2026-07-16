@@ -4,5 +4,5 @@ public sealed class ResendOptions
 {
     public string ApiKey { get; set; } = string.Empty;
 
-    public string From { get; set; } = "Caio Matheus Dev <onboarding@resend.dev>";
+    public string From { get; set; } = "Caio Matheus Dev <noreply@yahub.com.br>";
 }

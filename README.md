@@ -107,14 +107,14 @@ Variaveis para o Resend:
 
 ```text
 Resend__ApiKey=re_...
-Resend__From=Caio Matheus Dev <onboarding@resend.dev>
+Resend__From=Caio Matheus Dev <noreply@yahub.com.br>
 Email__ResetGifUrl=https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif
 ```
 
-Para producao real, verifique um dominio no Resend e troque `Resend__From` para algo como:
+Com o dominio `yahub.com.br` verificado no Resend, use:
 
 ```text
-Caio Matheus Dev <noreply@seudominio.com>
+Caio Matheus Dev <noreply@yahub.com.br>
 ```
 
 ## Deploy do frontend no GitHub Pages
@@ -155,7 +155,7 @@ Caminho recomendado para a API:
    - `AuthLab__FrontendBaseUrl`: `https://cmathxus.github.io/caio-matheus-dev`
    - `ConnectionStrings__DefaultConnection`: connection string do Neon
    - `Resend__ApiKey`: API key do Resend
-   - `Resend__From`: `Caio Matheus Dev <onboarding@resend.dev>` ou um remetente do seu dominio verificado
+   - `Resend__From`: `Caio Matheus Dev <noreply@yahub.com.br>`
    - `Email__ResetGifUrl`: `https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif`
 5. Em `Auto-Deploy`, deixe `On Commit`.
 6. Clique em `Create Web Service`.

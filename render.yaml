@@ -33,7 +33,7 @@ services:
       - key: Email__ResetGifUrl
         value: https://cmathxus.github.io/caio-matheus-dev/kirito-reset.gif
       - key: Resend__From
-        value: Caio Matheus Dev <onboarding@resend.dev>
+        value: Caio Matheus Dev <noreply@yahub.com.br>
       - key: Resend__ApiKey
         sync: false
 

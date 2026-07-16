@@ -80,7 +80,7 @@ POST /api/auth/reset-password
 
 O repositorio possui `render.yaml` com dois servicos:
 
-- `caio-matheus-dev-api`: API ASP.NET Core em Docker.
+- `caio-matheus-dev`: API ASP.NET Core em Docker.
 - `caio-matheus-dev-web`: frontend Vite como static site.
 
 Variaveis secretas para preencher no Render:
@@ -97,3 +97,55 @@ AuthLab__Secret
 ```
 
 O backend aceita connection string do Neon tanto no formato `postgresql://...` quanto no formato Npgsql `Host=...;Database=...`.
+
+## Deploy do frontend no GitHub Pages
+
+O workflow `.github/workflows/deploy-pages.yml` publica o frontend automaticamente a cada push na branch `main`.
+
+No GitHub:
+
+1. Abra `Settings` > `Pages`.
+2. Em `Build and deployment`, selecione `Source: GitHub Actions`.
+3. Abra `Settings` > `Secrets and variables` > `Actions` > `Variables`.
+4. Crie a variavel `VITE_API_BASE_URL` com a URL publica da API no Render.
+5. Faca push na `main` ou rode manualmente em `Actions` > `Deploy frontend to GitHub Pages`.
+
+URL esperada do Pages:
+
+```text
+https://cmathxus.github.io/caio-matheus-dev/
+```
+
+## Deploy do backend no Render
+
+Caminho recomendado para a API:
+
+1. No Render, clique em `New` > `Web Service`.
+2. Escolha `Git Provider` e conecte o repositorio `cmathxus/caio-matheus-dev`.
+3. Configure:
+   - Name: `caio-matheus-dev`
+   - Branch: `main`
+   - Root Directory: `backend`
+   - Runtime: `Docker`
+   - Instance Type: `Free`
+4. Em Environment, preencha:
+   - `ASPNETCORE_ENVIRONMENT`: `Production`
+   - `AuthLab__Issuer`: `caio-matheus-dev`
+   - `AuthLab__Audience`: `portfolio-auth-lab`
+   - `AuthLab__Secret`: gere uma string longa e aleatoria
+   - `AuthLab__FrontendBaseUrl`: `https://cmathxus.github.io/caio-matheus-dev`
+   - `ConnectionStrings__DefaultConnection`: connection string do Neon
+   - `Email__From`: seu e-mail Gmail
+   - `Email__Username`: seu e-mail Gmail
+   - `Email__Password`: app password do Gmail
+   - `Email__SmtpHost`: `smtp.gmail.com`
+   - `Email__SmtpPort`: `587`
+   - `Email__EnableSsl`: `true`
+5. Em `Auto-Deploy`, deixe `On Commit`.
+6. Clique em `Create Web Service`.
+
+Depois do deploy, teste:
+
+```text
+https://caio-matheus-dev.onrender.com/api/profile
+```

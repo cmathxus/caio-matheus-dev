@@ -139,6 +139,23 @@ type PasswordResetConfirmation = {
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5089'
+const publicBaseUrl = import.meta.env.BASE_URL
+
+const assetUrl = (path: string) => `${publicBaseUrl}${path.replace(/^\/+/, '')}`
+
+const normalizePublicAssetUrl = (url: string) => {
+  if (!url.startsWith('/')) {
+    return url
+  }
+
+  return assetUrl(url)
+}
+
+const normalizeCertificationAssets = (certifications: Certification[]) =>
+  certifications.map((certification) => ({
+    ...certification,
+    imageUrl: normalizePublicAssetUrl(certification.imageUrl),
+  }))
 
 const bootEntries: ConsoleEntry[] = [
   { type: 'output', text: 'Microsoft Windows [Portfolio Terminal]' },
@@ -318,7 +335,7 @@ const fallbackCertifications: Certification[] = [
     issuer: 'Microsoft',
     summaryPt: 'Certificação de fundamentos de cloud, serviços Azure, segurança, governança e modelos de cobrança.',
     summaryEn: 'Certification covering cloud fundamentals, Azure services, security, governance and pricing models.',
-    imageUrl: '/certifications/microsoft-az-900.png',
+    imageUrl: assetUrl('certifications/microsoft-az-900.png'),
     credentialUrl:
       'https://learn.microsoft.com/pt-br/users/caiomatheusqueiroz-7788/credentials/94eaa0e05ee099e?ref=https%3A%2F%2Fwww.linkedin.com%2F',
   },
@@ -329,7 +346,7 @@ const fallbackCertifications: Certification[] = [
     issuer: 'TIVIT',
     summaryPt: 'Bootcamp focado em desenvolvimento .NET com uso de GitHub Copilot no fluxo de construção de aplicações.',
     summaryEn: 'Bootcamp focused on .NET development using GitHub Copilot in the application-building workflow.',
-    imageUrl: '/certifications/tivit-dotnet-copilot.png',
+    imageUrl: assetUrl('certifications/tivit-dotnet-copilot.png'),
     credentialUrl:
       'https://www.linkedin.com/posts/caio-matheus-b68977236_finalizei-hoje-o-bootcamp-da-dio-tivit-activity-7399581791495512064-x5M4?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAADrgOMABjnHamE70unLi5JMtxUjA3G1Ooyo',
   },
@@ -661,7 +678,7 @@ function App() {
 
         if (!cancelled) {
           setData({ profile, projects, skills, experience })
-          setCertifications(certificationsData)
+          setCertifications(normalizeCertificationAssets(certificationsData))
           setRepos(repoEnvelope.items)
         }
       } catch {
@@ -1285,7 +1302,7 @@ function PasswordField({
           aria-label={visible ? 'Ocultar senha' : 'Exibir senha'}
           onClick={() => setVisible((current) => !current)}
         >
-          <img src="/sharingan-password.png" alt="" aria-hidden="true" />
+          <img src={assetUrl('sharingan-password.png')} alt="" aria-hidden="true" />
         </button>
       </span>
     </label>

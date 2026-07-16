@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: caio-matheus-dev-api
+    name: caio-matheus-dev
     runtime: docker
     rootDir: backend
     plan: free
@@ -15,7 +15,7 @@ services:
       - key: AuthLab__Secret
         generateValue: true
       - key: AuthLab__FrontendBaseUrl
-        value: https://caio-matheus-dev-web.onrender.com
+        value: https://cmathxus.github.io/caio-matheus-dev
       - key: ConnectionStrings__DefaultConnection
         sync: false
       - key: Email__From
@@ -39,7 +39,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://caio-matheus-dev-api.onrender.com
+        value: https://caio-matheus-dev.onrender.com
     routes:
       - type: rewrite
         source: /*

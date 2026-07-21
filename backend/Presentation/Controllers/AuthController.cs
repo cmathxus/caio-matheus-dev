@@ -1,6 +1,7 @@
 using CaioMatheusDev.Api.Application.Common;
 using CaioMatheusDev.Api.Application.Interfaces;
 using CaioMatheusDev.Api.Domain.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CaioMatheusDev.Api.Presentation.Controllers;
@@ -30,12 +31,23 @@ public sealed class AuthController(IAuthLabService authLabService) : ApiControll
             : StatusCodes.Status400BadRequest);
     }
 
+    [Authorize]
     [HttpGet("me")]
     public async Task<ActionResult<ApiResponse<AuthenticatedUser>>> Me(
-        [FromHeader(Name = "Authorization")] string? authorization,
         CancellationToken cancellationToken)
     {
-        var result = await authLabService.GetCurrentUserAsync(authorization ?? string.Empty, cancellationToken);
+        var userId = GetAuthenticatedUserId();
+
+        if (userId is null)
+        {
+            return InvalidTokenPayload<AuthenticatedUser>();
+        }
+
+        var result = await authLabService.GetCurrentUserAsync(
+            userId.Value,
+            GetAuthenticatedClaimSummary(),
+            cancellationToken);
+
         return FromResult(result, StatusCodes.Status401Unauthorized);
     }
 

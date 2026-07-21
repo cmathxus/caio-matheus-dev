@@ -1,5 +1,7 @@
 bin/
 obj/
+obj_validate/
+bin_validate/
 node_modules/
 dist/
 .env

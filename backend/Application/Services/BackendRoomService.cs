@@ -6,7 +6,6 @@ using CaioMatheusDev.Api.Domain.BackendRoom;
 namespace CaioMatheusDev.Api.Application.Services;
 
 public sealed class BackendRoomService(
-    IJwtTokenService jwtTokenService,
     IAuthUserStore authUserStore,
     IBackendRoomStore backendRoomStore) : IBackendRoomService
 {
@@ -18,10 +17,10 @@ public sealed class BackendRoomService(
     private static readonly TimeSpan CommunityPostLifetime = TimeSpan.FromHours(24);
 
     public async Task<Result<BackendRoomSnapshot>> GetRoomAsync(
-        string authorizationHeader,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -43,11 +42,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomNote>> CreateNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         CreateBackendRoomNoteRequest request,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -73,12 +72,12 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomNote>> UpdateNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid noteId,
         UpdateBackendRoomNoteRequest request,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -105,11 +104,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomActionResult>> DeleteNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid noteId,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -124,11 +123,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomDrawing>> SaveDrawingAsync(
-        string authorizationHeader,
+        Guid userId,
         SaveBackendRoomDrawingRequest request,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -165,10 +164,10 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<IReadOnlyCollection<BackendRoomCommunityPost>>> GetCommunityPostsAsync(
-        string authorizationHeader,
+        Guid userId,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -180,11 +179,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomCommunityPost>> ShareDrawingAsync(
-        string authorizationHeader,
+        Guid userId,
         ShareBackendRoomDrawingRequest request,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -224,11 +223,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomLikeResult>> ToggleCommunityPostLikeAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid postId,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -247,11 +246,11 @@ public sealed class BackendRoomService(
     }
 
     public async Task<Result<BackendRoomActionResult>> DeleteCommunityPostAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid postId,
         CancellationToken cancellationToken = default)
     {
-        var userResult = await GetAuthorizedUserAsync(authorizationHeader, cancellationToken);
+        var userResult = await GetExistingUserAsync(userId, cancellationToken);
 
         if (!userResult.IsSuccess)
         {
@@ -269,19 +268,11 @@ public sealed class BackendRoomService(
             : Result<BackendRoomActionResult>.Fail("community_post_not_found", "Community post not found in this Backend Room.");
     }
 
-    private async Task<Result<AuthUser>> GetAuthorizedUserAsync(
-        string authorizationHeader,
+    private async Task<Result<AuthUser>> GetExistingUserAsync(
+        Guid userId,
         CancellationToken cancellationToken)
     {
-        var tokenResult = jwtTokenService.Validate(authorizationHeader);
-
-        if (!tokenResult.IsSuccess)
-        {
-            return Result<AuthUser>.Fail(tokenResult.Error!.Code, tokenResult.Error.Message);
-        }
-
-        var payload = tokenResult.Value!;
-        var user = await authUserStore.FindByIdAsync(payload.UserId, cancellationToken);
+        var user = await authUserStore.FindByIdAsync(userId, cancellationToken);
 
         return user is null
             ? Result<AuthUser>.Fail("user_not_found", "The token is valid, but the user no longer exists.")

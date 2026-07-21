@@ -23,5 +23,7 @@ public sealed class AuthUserEntity
     public ICollection<BackendRoomCommunityPostEntity> BackendRoomCommunityPosts { get; set; } = [];
 
     public ICollection<BackendRoomCommunityPostLikeEntity> BackendRoomCommunityPostLikes { get; set; } = [];
+
+    public WalletEntity? Wallet { get; set; }
 }
 

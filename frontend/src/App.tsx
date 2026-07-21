@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent, MouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { CSSProperties, FormEvent, MouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import './App.css'
 
 type Language = 'pt' | 'en'
@@ -183,6 +183,47 @@ type BackendRoomLikeResult = {
   postId: string
   likesCount: number
   likedByCurrentUser: boolean
+}
+
+type WalletSummary = {
+  walletId: string
+  balance: number
+  currency: string
+  updatedAt: string
+}
+
+type WalletMovement = {
+  id: string
+  type: 'Credit' | 'Debit' | string
+  amount: number
+  description: string
+  relatedUserName: string | null
+  relatedUserEmail: string | null
+  transferId: string | null
+  createdAt: string
+}
+
+type WalletDepositResponse = {
+  message: string
+  wallet: WalletSummary
+  movement: WalletMovement
+}
+
+type WalletTransferResponse = {
+  transferId: string
+  status: string
+  amount: number
+  description: string
+  fromEmail: string
+  toEmail: string
+  wallet: WalletSummary
+  createdAt: string
+}
+
+type WalletStatementResponse = {
+  wallet: WalletSummary
+  movements: WalletMovement[]
+  loadedAt: string
 }
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5089'
@@ -443,6 +484,9 @@ const copy = {
     authTitle: 'Auth JWT',
     authHint: 'Registro, login, token assinado e endpoint protegido em ASP.NET Core.',
     authOpen: 'Abrir Auth Lab',
+    bankTitle: 'Bank',
+    bankHint: 'Carteira sandbox com saldo por usuário, depósito, transferências por e-mail e extrato.',
+    bankOpen: 'Abrir Bank',
     authPageTitle: 'Auth Lab',
     authPageText: 'Fluxo simples para demonstrar registro, login, geração de JWT e consumo de rota protegida com Bearer token.',
     authMemoryNote: 'Usuários persistidos em Neon Postgres, com senha protegida por hash e token JWT.',
@@ -521,6 +565,9 @@ const copy = {
     authTitle: 'JWT Auth',
     authHint: 'Register, login, signed token and protected ASP.NET Core endpoint.',
     authOpen: 'Open Auth Lab',
+    bankTitle: 'Bank',
+    bankHint: 'Sandbox wallet with user-owned balance, deposit, email transfers and statement history.',
+    bankOpen: 'Open Bank',
     authPageTitle: 'Auth Lab',
     authPageText: 'Simple flow demonstrating registration, login, JWT generation and protected route consumption with a Bearer token.',
     authMemoryNote: 'Users are persisted in Neon Postgres, with hashed passwords and JWT tokens.',
@@ -680,6 +727,34 @@ async function sendProtectedApi<T>(
   }
 
   return payload.data
+}
+
+const walletCurrencyLabel = 'Ryō'
+const walletCurrencyDescription = 'O ryō (両; Panini: "ryô") é a moeda usada no mundo de Naruto.'
+
+function formatWalletAmount(value: number, language: Language) {
+  return `${new Intl.NumberFormat(language === 'pt' ? 'pt-BR' : 'en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)} ${walletCurrencyLabel}`
+}
+
+function formatDateTime(value: string, language: Language) {
+  return new Intl.DateTimeFormat(language === 'pt' ? 'pt-BR' : 'en-US', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 function getInitialTheme(): Theme {
@@ -1246,7 +1321,7 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
 
   if (session) {
     return (
-      <BackendRoom
+      <AuthenticatedLab
         session={session}
         language={language}
         onLogout={() => {
@@ -1358,6 +1433,661 @@ function AuthLabPage({ t, language }: { t: typeof copy.pt; language: Language })
         </div>
         <pre>{JSON.stringify(authResult, null, 2)}</pre>
       </article>
+    </section>
+  )
+}
+
+function AuthenticatedLab({
+  session,
+  language,
+  onLogout,
+}: {
+  session: AuthSession
+  language: Language
+  onLogout: () => void
+}) {
+  const [activeArea, setActiveArea] = useState<'wallet' | 'room'>('wallet')
+  const areaSwitch = (
+    <AuthAreaSwitch
+      activeArea={activeArea}
+      language={language}
+      onSelect={setActiveArea}
+    />
+  )
+
+  return activeArea === 'wallet' ? (
+    <WalletLab
+      session={session}
+      language={language}
+      onLogout={onLogout}
+      areaSwitch={areaSwitch}
+    />
+  ) : (
+    <BackendRoom
+      session={session}
+      language={language}
+      onLogout={onLogout}
+      areaSwitch={areaSwitch}
+    />
+  )
+}
+
+function AuthAreaSwitch({
+  activeArea,
+  language,
+  onSelect,
+}: {
+  activeArea: 'wallet' | 'room'
+  language: Language
+  onSelect: (area: 'wallet' | 'room') => void
+}) {
+  return (
+    <div className="auth-area-switch" aria-label={language === 'pt' ? 'Selecionar área autenticada' : 'Select authenticated area'}>
+      <button
+        className={activeArea === 'wallet' ? 'active' : ''}
+        type="button"
+        onClick={() => onSelect('wallet')}
+      >
+        <span>Bank</span>
+        <small>{language === 'pt' ? 'saldo, pix e extrato' : 'balance, Pix and statement'}</small>
+      </button>
+      <button
+        className={activeArea === 'room' ? 'active' : ''}
+        type="button"
+        onClick={() => onSelect('room')}
+      >
+        <span>Backend Room</span>
+        <small>{language === 'pt' ? 'notas, canvas e feed' : 'notes, canvas and feed'}</small>
+      </button>
+    </div>
+  )
+}
+
+function WalletLab({
+  session,
+  language,
+  onLogout,
+  areaSwitch,
+}: {
+  session: AuthSession
+  language: Language
+  onLogout: () => void
+  areaSwitch: ReactNode
+}) {
+  const [statement, setStatement] = useState<WalletStatementResponse | null>(null)
+  const [depositAmount, setDepositAmount] = useState('250')
+  const [depositDescription, setDepositDescription] = useState('')
+  const [transferEmail, setTransferEmail] = useState('')
+  const [transferAmount, setTransferAmount] = useState('50')
+  const [transferDescription, setTransferDescription] = useState('')
+  const [walletResult, setWalletResult] = useState<unknown>({ loading: true })
+  const [walletAction, setWalletAction] = useState<'load' | 'deposit' | 'transfer' | null>(null)
+  const [walletMessage, setWalletMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const wallet = statement?.wallet
+  const latestMovement = statement?.movements[0]
+
+  useEffect(() => {
+    void loadWallet()
+  }, [session.accessToken])
+
+  async function loadWallet() {
+    setWalletAction('load')
+
+    try {
+      const result = await getProtectedApi<WalletStatementResponse>('/api/wallet/statement', session.accessToken)
+      setStatement(result)
+      setWalletResult({
+        success: true,
+        action: 'wallet.statement.loaded',
+        wallet: result.wallet,
+        movements: result.movements.slice(0, 3),
+      })
+    } catch (error) {
+      setWalletResult({ success: false, error: error instanceof Error ? error.message : 'Request failed' })
+    } finally {
+      setWalletAction(null)
+    }
+  }
+
+  async function deposit(event: FormEvent) {
+    event.preventDefault()
+    setWalletAction('deposit')
+    setWalletMessage(null)
+
+    try {
+      const result = await sendProtectedApi<WalletDepositResponse>(
+        '/api/wallet/deposit',
+        session.accessToken,
+        'POST',
+        {
+          amount: Number(depositAmount),
+          description: depositDescription || undefined,
+        },
+      )
+      const nextStatement = await getProtectedApi<WalletStatementResponse>('/api/wallet/statement', session.accessToken)
+      setStatement(nextStatement)
+      setDepositDescription('')
+      setWalletMessage({
+        type: 'success',
+        text: language === 'pt' ? 'Saldo adicionado com sucesso.' : 'Balance added successfully.',
+      })
+      setWalletResult({ success: true, action: 'wallet.deposit.created', result })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request failed'
+      setWalletMessage({ type: 'error', text: message })
+      setWalletResult({ success: false, error: message })
+    } finally {
+      setWalletAction(null)
+    }
+  }
+
+  async function transfer(event: FormEvent) {
+    event.preventDefault()
+    setWalletAction('transfer')
+    setWalletMessage(null)
+
+    try {
+      const result = await sendProtectedApi<WalletTransferResponse>(
+        '/api/wallet/transfers',
+        session.accessToken,
+        'POST',
+        {
+          toEmail: transferEmail,
+          amount: Number(transferAmount),
+          description: transferDescription || undefined,
+        },
+      )
+      const nextStatement = await getProtectedApi<WalletStatementResponse>('/api/wallet/statement', session.accessToken)
+      setStatement(nextStatement)
+      setTransferDescription('')
+      setWalletMessage({
+        type: 'success',
+        text: language === 'pt' ? 'Transferência realizada com sucesso.' : 'Transfer completed successfully.',
+      })
+      setWalletResult({ success: true, action: 'wallet.transfer.completed', result })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request failed'
+      const normalizedMessage = message.toLowerCase()
+      const transferErrorMessage =
+        normalizedMessage.includes('chave de transferência')
+        || normalizedMessage.includes('usuário de destino')
+        || normalizedMessage.includes('receiver')
+        || normalizedMessage.includes('not found')
+          ? language === 'pt'
+            ? 'Chave de transferência não encontrada. Confira o e-mail do destinatário.'
+            : 'Transfer key not found. Check the recipient email.'
+          : language === 'pt'
+            ? `Não foi possível realizar a transferência. ${message}`
+            : `Could not complete the transfer. ${message}`
+
+      setWalletMessage({
+        type: 'error',
+        text: transferErrorMessage,
+      })
+      setWalletResult({ success: false, error: message })
+    } finally {
+      setWalletAction(null)
+    }
+  }
+
+  function exportStatementPdf() {
+    if (!statement || !wallet) {
+      setWalletResult({
+        success: false,
+        error: language === 'pt' ? 'Carregue o extrato antes de exportar.' : 'Load the statement before exporting.',
+      })
+      return
+    }
+
+    const issuedAt = new Date().toLocaleString(language === 'pt' ? 'pt-BR' : 'en-US')
+    const rows = statement.movements.length
+      ? statement.movements.map((movement) => {
+          const isDebit = movement.type === 'Debit'
+          const relatedUser = movement.relatedUserEmail
+            ? `${isDebit ? (language === 'pt' ? 'Para' : 'To') : (language === 'pt' ? 'De' : 'From')} ${movement.relatedUserEmail}`
+            : language === 'pt'
+              ? 'Movimentação sandbox'
+              : 'Sandbox movement'
+
+          return `
+            <tr>
+              <td>
+                <strong>${escapeHtml(movement.description)}</strong>
+                <span>${escapeHtml(relatedUser)}</span>
+              </td>
+              <td>${escapeHtml(formatDateTime(movement.createdAt, language))}</td>
+              <td>${isDebit ? (language === 'pt' ? 'Débito' : 'Debit') : (language === 'pt' ? 'Crédito' : 'Credit')}</td>
+              <td class="${isDebit ? 'debit' : 'credit'}">${isDebit ? '-' : '+'}${escapeHtml(formatWalletAmount(movement.amount, language))}</td>
+            </tr>
+          `
+        }).join('')
+      : `<tr><td colspan="4">${language === 'pt' ? 'Nenhuma movimentação encontrada.' : 'No movements found.'}</td></tr>`
+
+    const html = `
+      <!doctype html>
+      <html lang="${language}">
+        <head>
+          <meta charset="utf-8" />
+          <title>Bank Statement - ${escapeHtml(session.user.name)}</title>
+          <style>
+            @page { size: A4; margin: 18mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              color: #111;
+              background: #fff;
+              font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .report {
+              display: grid;
+              gap: 24px;
+            }
+            header {
+              display: grid;
+              grid-template-columns: 1fr auto;
+              gap: 24px;
+              align-items: start;
+              padding-bottom: 18px;
+              border-bottom: 2px solid #111;
+            }
+            .eyebrow {
+              margin: 0 0 8px;
+              color: #525252;
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 0.12em;
+              text-transform: uppercase;
+            }
+            h1 {
+              margin: 0;
+              font-size: 48px;
+              line-height: 0.9;
+              letter-spacing: -0.08em;
+            }
+            .identity {
+              display: grid;
+              gap: 4px;
+              min-width: 220px;
+              padding: 14px;
+              border: 1px solid #111;
+              border-radius: 14px;
+            }
+            .identity span,
+            .summary span,
+            footer {
+              color: #525252;
+              font-size: 12px;
+            }
+            .identity strong {
+              font-size: 16px;
+            }
+            .summary {
+              display: grid;
+              grid-template-columns: 1.2fr 0.8fr 1fr;
+              border: 1px solid #111;
+              border-radius: 18px;
+              overflow: hidden;
+            }
+            .summary div {
+              display: grid;
+              gap: 8px;
+              min-height: 92px;
+              padding: 16px;
+              border-right: 1px solid #111;
+            }
+            .summary div:last-child {
+              border-right: 0;
+            }
+            .summary strong {
+              font-size: 24px;
+              letter-spacing: -0.05em;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              overflow: hidden;
+              border: 1px solid #111;
+              border-radius: 14px;
+            }
+            th {
+              padding: 12px;
+              background: #111;
+              color: #fff;
+              text-align: left;
+              font-size: 11px;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+            }
+            td {
+              padding: 13px 12px;
+              border-top: 1px solid #d4d4d4;
+              vertical-align: top;
+              font-size: 13px;
+            }
+            td strong,
+            td span {
+              display: block;
+            }
+            td span {
+              margin-top: 4px;
+              color: #666;
+              font-size: 11px;
+            }
+            td:last-child {
+              text-align: right;
+              white-space: nowrap;
+              font-weight: 800;
+            }
+            .credit { color: #111; }
+            .debit { color: #111; }
+            footer {
+              display: flex;
+              justify-content: space-between;
+              gap: 16px;
+              padding-top: 14px;
+              border-top: 1px solid #d4d4d4;
+            }
+            @media print {
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <main class="report">
+            <header>
+              <div>
+                <p class="eyebrow">Bank / ${language === 'pt' ? 'Relatório de extrato' : 'Statement report'}</p>
+                <h1>${language === 'pt' ? 'Extrato da carteira.' : 'Wallet statement.'}</h1>
+              </div>
+              <section class="identity">
+                <span>${language === 'pt' ? 'Usuário' : 'User'}</span>
+                <strong>${escapeHtml(session.user.name)}</strong>
+                <span>${escapeHtml(session.user.email)}</span>
+              </section>
+            </header>
+
+            <section class="summary">
+              <div>
+                <span>${language === 'pt' ? 'Saldo disponível' : 'Available balance'}</span>
+                <strong>${escapeHtml(formatWalletAmount(wallet.balance, language))}</strong>
+              </div>
+              <div>
+                <span>${language === 'pt' ? 'Moeda' : 'Currency'}</span>
+                <strong>${walletCurrencyLabel}</strong>
+              </div>
+              <div>
+                <span>${language === 'pt' ? 'Emitido em' : 'Issued at'}</span>
+                <strong>${escapeHtml(issuedAt)}</strong>
+              </div>
+            </section>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>${language === 'pt' ? 'Descrição' : 'Description'}</th>
+                  <th>${language === 'pt' ? 'Data' : 'Date'}</th>
+                  <th>${language === 'pt' ? 'Tipo' : 'Type'}</th>
+                  <th>${language === 'pt' ? 'Valor' : 'Amount'}</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+
+            <footer>
+              <span>${walletCurrencyDescription}</span>
+              <span>${language === 'pt' ? 'Dinheiro fictício. Nenhuma transação real.' : 'Fictional money. No real transaction.'}</span>
+            </footer>
+          </main>
+          <script>
+            window.addEventListener('load', () => {
+              window.setTimeout(() => window.print(), 220);
+            });
+          </script>
+        </body>
+      </html>
+    `
+
+    const reportWindow = window.open('', '_blank', 'width=960,height=720')
+
+    if (!reportWindow) {
+      setWalletResult({
+        success: false,
+        error: language === 'pt' ? 'O navegador bloqueou a janela do PDF.' : 'The browser blocked the PDF window.',
+      })
+      return
+    }
+
+    reportWindow.document.open()
+    reportWindow.document.write(html)
+    reportWindow.document.close()
+    setWalletResult({
+      success: true,
+      action: 'wallet.statement.pdf.opened',
+      movements: statement.movements.length,
+      currency: walletCurrencyLabel,
+    })
+  }
+
+  return (
+    <section className="lab-page wallet-page">
+      <div className="wallet-shell">
+        {areaSwitch}
+        <header className="wallet-hero">
+          <div className="wallet-hero-copy">
+            <p className="eyebrow">{language === 'pt' ? 'Conta sandbox' : 'Sandbox account'}</p>
+            <h2>Bank</h2>
+            <p>
+              {language === 'pt'
+                ? 'Uma interface de banco em modo sandbox para testar autenticação, saldo por usuário, transferências e extrato.'
+                : 'A sandbox banking interface to test authentication, user-owned balance, transfers and statement history.'}
+            </p>
+          </div>
+
+          <div className="wallet-user-card">
+            <div className="user-avatar" aria-hidden="true">
+              {session.user.name.slice(0, 1).toUpperCase()}
+            </div>
+            <div>
+              <span>{language === 'pt' ? 'Logado como' : 'Logged in as'}</span>
+              <strong>{session.user.name}</strong>
+              <small>{session.user.email}</small>
+            </div>
+            <div className="wallet-user-actions">
+              <button className="button" type="button" onClick={onLogout}>
+                Logout
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <section className="wallet-balance-card">
+          <div>
+            <span>{language === 'pt' ? 'Saldo disponível' : 'Available balance'}</span>
+            <strong>{wallet ? formatWalletAmount(wallet.balance, language) : '...'}</strong>
+          </div>
+          <div>
+            <span>{language === 'pt' ? 'Moeda' : 'Currency'}</span>
+            <strong className="wallet-currency-name">
+              {walletCurrencyLabel}
+              <span
+                className="wallet-currency-help"
+                tabIndex={0}
+                aria-label={walletCurrencyDescription}
+              >
+                ?
+                <span role="tooltip">
+                  O ryō (両; Panini: "ryô") é a moeda usada no mundo de Naruto.
+                </span>
+              </span>
+            </strong>
+          </div>
+          <div>
+            <span>{language === 'pt' ? 'Última atualização' : 'Last update'}</span>
+            <strong>{wallet ? formatDateTime(wallet.updatedAt, language) : '...'}</strong>
+          </div>
+        </section>
+
+        <div className="wallet-grid">
+          <article className="wallet-panel transfer-panel">
+            <div className="panel-title">
+              <h3>{language === 'pt' ? 'Transferência' : 'Transfer'}</h3>
+              <span>POST /transfers</span>
+            </div>
+
+            <form className="wallet-form" onSubmit={transfer}>
+              <label>
+                {language === 'pt' ? 'E-mail de destino' : 'Recipient email'}
+                <input
+                  value={transferEmail}
+                  onChange={(event) => setTransferEmail(event.target.value)}
+                  placeholder="sasuke@email.com"
+                  type="email"
+                />
+              </label>
+
+              <label>
+                {language === 'pt' ? 'Valor' : 'Amount'}
+                <input
+                  value={transferAmount}
+                  onChange={(event) => setTransferAmount(event.target.value)}
+                  min="0.01"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="wallet-form-wide">
+                {language === 'pt' ? 'Descrição' : 'Description'}
+                <input
+                  value={transferDescription}
+                  onChange={(event) => setTransferDescription(event.target.value)}
+                  maxLength={160}
+                  placeholder={language === 'pt' ? 'Pix do portfólio' : 'Portfolio Pix'}
+                />
+              </label>
+
+              <button className="button primary" type="submit" disabled={walletAction === 'transfer' || !transferEmail || !transferAmount}>
+                {walletAction === 'transfer' ? '...' : language === 'pt' ? 'Enviar Pix' : 'Send Pix'}
+              </button>
+            </form>
+            {walletMessage && (
+              <p className={`wallet-message ${walletMessage.type}`}>
+                {walletMessage.text}
+              </p>
+            )}
+          </article>
+
+          <article className="wallet-panel deposit-panel">
+            <div className="panel-title">
+              <h3>{language === 'pt' ? 'Depósito sandbox' : 'Sandbox deposit'}</h3>
+              <span>POST /deposit</span>
+            </div>
+
+            <form className="wallet-form compact" onSubmit={deposit}>
+              <label>
+                {language === 'pt' ? 'Valor' : 'Amount'}
+                <input
+                  value={depositAmount}
+                  onChange={(event) => setDepositAmount(event.target.value)}
+                  min="0.01"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label>
+                {language === 'pt' ? 'Descrição' : 'Description'}
+                <input
+                  value={depositDescription}
+                  onChange={(event) => setDepositDescription(event.target.value)}
+                  maxLength={160}
+                  placeholder={language === 'pt' ? 'Bônus de teste' : 'Test bonus'}
+                />
+              </label>
+
+              <button className="button primary" type="submit" disabled={walletAction === 'deposit' || !depositAmount}>
+                {walletAction === 'deposit' ? '...' : language === 'pt' ? 'Adicionar saldo' : 'Add balance'}
+              </button>
+            </form>
+
+            <div className="wallet-mini-receipt">
+              <span>{language === 'pt' ? 'Última movimentação' : 'Latest movement'}</span>
+              {latestMovement ? (
+                <>
+                  <strong>{latestMovement.description}</strong>
+                  <small>
+                    {latestMovement.type === 'Debit' ? '-' : '+'}
+                    {formatWalletAmount(latestMovement.amount, language)}
+                  </small>
+                </>
+              ) : (
+                <strong>{language === 'pt' ? 'Nada por enquanto' : 'Nothing yet'}</strong>
+              )}
+            </div>
+          </article>
+        </div>
+
+        <section className="wallet-panel statement-panel">
+          <div className="panel-title">
+            <h3>{language === 'pt' ? 'Extrato' : 'Statement'}</h3>
+            <div className="statement-actions">
+              <button type="button" onClick={exportStatementPdf} disabled={!statement}>
+                {language === 'pt' ? 'Exportar PDF' : 'Export PDF'}
+              </button>
+              <button type="button" onClick={loadWallet} disabled={walletAction === 'load'}>
+                {walletAction === 'load' ? '...' : language === 'pt' ? 'Atualizar' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          <div className="statement-list">
+            {statement?.movements.length ? (
+              statement.movements.map((movement) => (
+                <article className="statement-row" key={movement.id}>
+                  <div className={`movement-icon ${movement.type === 'Debit' ? 'is-debit' : 'is-credit'}`}>
+                    {movement.type === 'Debit' ? '−' : '+'}
+                  </div>
+                  <div>
+                    <strong>{movement.description}</strong>
+                    <span>
+                      {movement.relatedUserEmail
+                        ? `${movement.type === 'Debit' ? 'Para' : 'De'} ${movement.relatedUserEmail}`
+                        : language === 'pt'
+                          ? 'Movimentação sandbox'
+                          : 'Sandbox movement'}
+                    </span>
+                  </div>
+                  <time>{formatDateTime(movement.createdAt, language)}</time>
+                  <strong className={movement.type === 'Debit' ? 'amount debit' : 'amount credit'}>
+                    {movement.type === 'Debit' ? '-' : '+'}
+                    {formatWalletAmount(movement.amount, language)}
+                  </strong>
+                </article>
+              ))
+            ) : (
+              <p className="empty-state">
+                {language === 'pt'
+                  ? 'O extrato aparece aqui quando a carteira for criada.'
+                  : 'The statement appears here when the wallet is created.'}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <details className="wallet-panel room-json-panel">
+          <summary>
+            <span>{language === 'pt' ? 'Ver resposta da API' : 'View API response'}</span>
+            <code>GET /api/wallet/statement</code>
+          </summary>
+          <pre>{JSON.stringify(walletResult, null, 2)}</pre>
+        </details>
+
+        <p className="wallet-disclaimer">
+          {language === 'pt'
+            ? 'Dinheiro fictício. Nenhuma transação real é realizada.'
+            : 'Fictional money. No real transaction is performed.'}
+        </p>
+      </div>
     </section>
   )
 }
@@ -1488,10 +2218,12 @@ function BackendRoom({
   session,
   language,
   onLogout,
+  areaSwitch,
 }: {
   session: AuthSession
   language: Language
   onLogout: () => void
+  areaSwitch?: ReactNode
 }) {
   const [room, setRoom] = useState<BackendRoomSnapshot | null>(null)
   const [noteContent, setNoteContent] = useState('')
@@ -1906,6 +2638,7 @@ function BackendRoom({
   return (
     <section className="lab-page backend-room-page">
       <div className="backend-room-shell">
+        {areaSwitch}
         <header className="backend-room-top">
           <div className="backend-room-title">
             <p className="eyebrow">{language === 'pt' ? 'Área autenticada' : 'Authenticated area'}</p>
@@ -2181,7 +2914,7 @@ function AuthResetPage({ t, language }: { t: typeof copy.pt; language: Language 
 
   if (session) {
     return (
-      <BackendRoom
+      <AuthenticatedLab
         session={session}
         language={language}
         onLogout={() => {
@@ -2856,6 +3589,24 @@ function LabPage({
             </button>
           </div>
           <code>POST /api/auth/register · POST /api/auth/login · GET /api/auth/me</code>
+        </article>
+        <article className="lab-card auth-lab-card bank-lab-card">
+          <span>06</span>
+          <h3>{t.bankTitle}</h3>
+          <p>{t.bankHint}</p>
+          <div className="lab-form single-action">
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => {
+                setPage('auth')
+                window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 0)
+              }}
+            >
+              {t.bankOpen}
+            </button>
+          </div>
+          <code>GET /api/wallet · POST /api/wallet/transfers · GET /api/wallet/statement</code>
         </article>
       </div>
 

@@ -9,7 +9,10 @@ public interface IAuthLabService
 
     Task<Result<AuthSession>> LoginAsync(AuthCredentials credentials, CancellationToken cancellationToken = default);
 
-    Task<Result<AuthenticatedUser>> GetCurrentUserAsync(string authorizationHeader, CancellationToken cancellationToken = default);
+    Task<Result<AuthenticatedUser>> GetCurrentUserAsync(
+        Guid userId,
+        IReadOnlyCollection<string> claims,
+        CancellationToken cancellationToken = default);
 
     Task<Result<PasswordResetRequestResult>> ForgotPasswordAsync(
         ForgotPasswordRequest request,

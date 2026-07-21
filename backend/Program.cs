@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
+using CaioMatheusDev.Api.Application.Common;
 using CaioMatheusDev.Api.Application.Interfaces;
 using CaioMatheusDev.Api.Application.Options;
 using CaioMatheusDev.Api.Application.Services;
@@ -7,13 +10,17 @@ using CaioMatheusDev.Api.Infrastructure.GitHub;
 using CaioMatheusDev.Api.Infrastructure.Http;
 using CaioMatheusDev.Api.Infrastructure.Persistence;
 using CaioMatheusDev.Api.Infrastructure.Workers;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 var defaultConnection = NormalizePostgresConnectionString(
     builder.Configuration.GetConnectionString("DefaultConnection"));
+var authSection = builder.Configuration.GetSection("AuthLab");
+var authOptions = authSection.Get<AuthLabOptions>() ?? new AuthLabOptions();
 
 builder.Services.AddCors(options =>
 {
@@ -26,10 +33,51 @@ builder.Services.AddCors(options =>
 builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
-builder.Services.Configure<AuthLabOptions>(builder.Configuration.GetSection("AuthLab"));
-builder.Services.Configure<AuthFlowOptions>(builder.Configuration.GetSection("AuthLab"));
+builder.Services.Configure<AuthLabOptions>(authSection);
+builder.Services.Configure<AuthFlowOptions>(authSection);
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<ResendOptions>(builder.Configuration.GetSection("Resend"));
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = authOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = authOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.Secret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+            NameClaimType = JwtRegisteredClaimNames.Name
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+
+                var error = context.AuthenticateFailure is SecurityTokenExpiredException
+                    ? new ApiError("expired_token", "JWT expired. Login again.")
+                    : new ApiError("missing_or_invalid_token", "Send a valid token using the Authorization: Bearer header.");
+
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(error));
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(
+                    new ApiError("forbidden", "You do not have permission to access this resource.")));
+            }
+        };
+    });
+builder.Services.AddAuthorization();
 
 if (!string.IsNullOrWhiteSpace(defaultConnection))
 {
@@ -38,12 +86,14 @@ if (!string.IsNullOrWhiteSpace(defaultConnection))
     builder.Services.AddScoped<IAuthUserStore, PostgresAuthUserStore>();
     builder.Services.AddScoped<IPasswordResetTokenStore, PostgresPasswordResetTokenStore>();
     builder.Services.AddScoped<IBackendRoomStore, PostgresBackendRoomStore>();
+    builder.Services.AddScoped<IWalletStore, PostgresWalletStore>();
 }
 else
 {
     builder.Services.AddSingleton<IAuthUserStore, InMemoryAuthUserStore>();
     builder.Services.AddSingleton<IPasswordResetTokenStore, InMemoryPasswordResetTokenStore>();
     builder.Services.AddSingleton<IBackendRoomStore, InMemoryBackendRoomStore>();
+    builder.Services.AddSingleton<IWalletStore, InMemoryWalletStore>();
 }
 
 builder.Services.AddHttpClient("github", client =>
@@ -81,11 +131,14 @@ builder.Services.AddScoped<IEmailSender>(serviceProvider =>
 });
 builder.Services.AddScoped<IAuthLabService, AuthLabService>();
 builder.Services.AddScoped<IBackendRoomService, BackendRoomService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddHostedService<PortfolioRefreshWorker>();
 
 var app = builder.Build();
 
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (!string.IsNullOrWhiteSpace(defaultConnection))
 {

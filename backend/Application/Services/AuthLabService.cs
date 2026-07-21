@@ -78,18 +78,11 @@ public sealed class AuthLabService(
     }
 
     public async Task<Result<AuthenticatedUser>> GetCurrentUserAsync(
-        string authorizationHeader,
+        Guid userId,
+        IReadOnlyCollection<string> claims,
         CancellationToken cancellationToken = default)
     {
-        var tokenResult = jwtTokenService.Validate(authorizationHeader);
-
-        if (!tokenResult.IsSuccess)
-        {
-            return Result<AuthenticatedUser>.Fail(tokenResult.Error!.Code, tokenResult.Error.Message);
-        }
-
-        var payload = tokenResult.Value!;
-        var user = await userStore.FindByIdAsync(payload.UserId, cancellationToken);
+        var user = await userStore.FindByIdAsync(userId, cancellationToken);
 
         if (user is null)
         {
@@ -100,7 +93,7 @@ public sealed class AuthLabService(
         var response = new AuthenticatedUser(
             "JWT accepted. This endpoint only responds with a valid Bearer token.",
             profile,
-            payload.Claims);
+            claims);
 
         return Result<AuthenticatedUser>.Ok(response);
     }

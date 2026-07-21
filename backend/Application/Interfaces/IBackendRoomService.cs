@@ -6,46 +6,46 @@ namespace CaioMatheusDev.Api.Application.Interfaces;
 public interface IBackendRoomService
 {
     Task<Result<BackendRoomSnapshot>> GetRoomAsync(
-        string authorizationHeader,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomNote>> CreateNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         CreateBackendRoomNoteRequest request,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomNote>> UpdateNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid noteId,
         UpdateBackendRoomNoteRequest request,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomActionResult>> DeleteNoteAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid noteId,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomDrawing>> SaveDrawingAsync(
-        string authorizationHeader,
+        Guid userId,
         SaveBackendRoomDrawingRequest request,
         CancellationToken cancellationToken = default);
 
     Task<Result<IReadOnlyCollection<BackendRoomCommunityPost>>> GetCommunityPostsAsync(
-        string authorizationHeader,
+        Guid userId,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomCommunityPost>> ShareDrawingAsync(
-        string authorizationHeader,
+        Guid userId,
         ShareBackendRoomDrawingRequest request,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomLikeResult>> ToggleCommunityPostLikeAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid postId,
         CancellationToken cancellationToken = default);
 
     Task<Result<BackendRoomActionResult>> DeleteCommunityPostAsync(
-        string authorizationHeader,
+        Guid userId,
         Guid postId,
         CancellationToken cancellationToken = default);
 }

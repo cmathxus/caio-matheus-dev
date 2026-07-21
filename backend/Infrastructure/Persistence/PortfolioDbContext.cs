@@ -17,6 +17,12 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
 
     public DbSet<BackendRoomCommunityPostLikeEntity> BackendRoomCommunityPostLikes => Set<BackendRoomCommunityPostLikeEntity>();
 
+    public DbSet<WalletEntity> Wallets => Set<WalletEntity>();
+
+    public DbSet<WalletTransferEntity> WalletTransfers => Set<WalletTransferEntity>();
+
+    public DbSet<WalletMovementEntity> WalletMovements => Set<WalletMovementEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AuthUserEntity>(builder =>
@@ -107,6 +113,61 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
                 .WithMany(user => user.BackendRoomCommunityPostLikes)
                 .HasForeignKey(like => like.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WalletEntity>(builder =>
+        {
+            builder.ToTable("wallets");
+            builder.HasKey(wallet => wallet.Id);
+            builder.Property(wallet => wallet.Balance).HasColumnType("numeric(18,2)").IsRequired();
+            builder.Property(wallet => wallet.Currency).HasMaxLength(3).IsRequired();
+            builder.Property(wallet => wallet.CreatedAt).IsRequired();
+            builder.Property(wallet => wallet.UpdatedAt).IsRequired();
+            builder.HasIndex(wallet => wallet.UserId).IsUnique();
+            builder.HasOne(wallet => wallet.User)
+                .WithOne(user => user.Wallet)
+                .HasForeignKey<WalletEntity>(wallet => wallet.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WalletTransferEntity>(builder =>
+        {
+            builder.ToTable("wallet_transfers");
+            builder.HasKey(transfer => transfer.Id);
+            builder.Property(transfer => transfer.Amount).HasColumnType("numeric(18,2)").IsRequired();
+            builder.Property(transfer => transfer.Description).HasMaxLength(160).IsRequired();
+            builder.Property(transfer => transfer.Status).HasMaxLength(30).IsRequired();
+            builder.Property(transfer => transfer.CreatedAt).IsRequired();
+            builder.HasIndex(transfer => transfer.FromWalletId);
+            builder.HasIndex(transfer => transfer.ToWalletId);
+            builder.HasIndex(transfer => transfer.CreatedAt);
+            builder.HasOne(transfer => transfer.FromWallet)
+                .WithMany(wallet => wallet.OutgoingTransfers)
+                .HasForeignKey(transfer => transfer.FromWalletId)
+                .OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne(transfer => transfer.ToWallet)
+                .WithMany(wallet => wallet.IncomingTransfers)
+                .HasForeignKey(transfer => transfer.ToWalletId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WalletMovementEntity>(builder =>
+        {
+            builder.ToTable("wallet_movements");
+            builder.HasKey(movement => movement.Id);
+            builder.Property(movement => movement.Type).HasMaxLength(20).IsRequired();
+            builder.Property(movement => movement.Amount).HasColumnType("numeric(18,2)").IsRequired();
+            builder.Property(movement => movement.Description).HasMaxLength(160).IsRequired();
+            builder.Property(movement => movement.CreatedAt).IsRequired();
+            builder.HasIndex(movement => new { movement.WalletId, movement.CreatedAt });
+            builder.HasOne(movement => movement.Wallet)
+                .WithMany(wallet => wallet.Movements)
+                .HasForeignKey(movement => movement.WalletId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne(movement => movement.Transfer)
+                .WithMany(transfer => transfer.Movements)
+                .HasForeignKey(movement => movement.TransferId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using CaioMatheusDev.Api.Application.Interfaces;
 using CaioMatheusDev.Api.Domain.Auth;
 using Microsoft.Extensions.Options;
@@ -15,7 +14,7 @@ public sealed class JwtTokenService(IOptions<AuthLabOptions> options) : IJwtToke
     public AuthSession CreateSession(AuthUser user)
     {
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(authOptions.ExpiresInMinutes);
-        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.Secret));
+        var signingKey = JwtSigningKey.FromSecret(authOptions.Secret);
         var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {

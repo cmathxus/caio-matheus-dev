@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Text;
 using CaioMatheusDev.Api.Application.Common;
 using CaioMatheusDev.Api.Application.Interfaces;
 using CaioMatheusDev.Api.Application.Options;
@@ -49,7 +48,7 @@ builder.Services
             ValidateAudience = true,
             ValidAudience = authOptions.Audience,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.Secret)),
+            IssuerSigningKey = JwtSigningKey.FromSecret(authOptions.Secret),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = JwtRegisteredClaimNames.Name

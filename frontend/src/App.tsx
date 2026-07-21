@@ -1446,7 +1446,7 @@ function AuthenticatedLab({
   language: Language
   onLogout: () => void
 }) {
-  const [activeArea, setActiveArea] = useState<'wallet' | 'room'>('wallet')
+  const [activeArea, setActiveArea] = useState<'wallet' | 'room'>('room')
   const areaSwitch = (
     <AuthAreaSwitch
       activeArea={activeArea}
@@ -1455,15 +1455,15 @@ function AuthenticatedLab({
     />
   )
 
-  return activeArea === 'wallet' ? (
-    <WalletLab
+  return activeArea === 'room' ? (
+    <BackendRoom
       session={session}
       language={language}
       onLogout={onLogout}
       areaSwitch={areaSwitch}
     />
   ) : (
-    <BackendRoom
+    <WalletLab
       session={session}
       language={language}
       onLogout={onLogout}
@@ -1484,20 +1484,20 @@ function AuthAreaSwitch({
   return (
     <div className="auth-area-switch" aria-label={language === 'pt' ? 'Selecionar área autenticada' : 'Select authenticated area'}>
       <button
-        className={activeArea === 'wallet' ? 'active' : ''}
-        type="button"
-        onClick={() => onSelect('wallet')}
-      >
-        <span>Bank</span>
-        <small>{language === 'pt' ? 'saldo, pix e extrato' : 'balance, Pix and statement'}</small>
-      </button>
-      <button
         className={activeArea === 'room' ? 'active' : ''}
         type="button"
         onClick={() => onSelect('room')}
       >
         <span>Backend Room</span>
         <small>{language === 'pt' ? 'notas, canvas e feed' : 'notes, canvas and feed'}</small>
+      </button>
+      <button
+        className={activeArea === 'wallet' ? 'active' : ''}
+        type="button"
+        onClick={() => onSelect('wallet')}
+      >
+        <span>Bank</span>
+        <small>{language === 'pt' ? 'saldo, pix e extrato' : 'balance, Pix and statement'}</small>
       </button>
     </div>
   )
